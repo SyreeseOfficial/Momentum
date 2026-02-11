@@ -11,6 +11,9 @@ export default function SettingsScreen() {
     const router = useRouter();
     const { trackers, history, deleteTracker, clearAllData } = useTrackers();
 
+    const totalActions = history.reduce((acc, record) => acc + record.totalVolume, 0);
+    const activeTrackersCount = trackers.length;
+
     const handleDeleteTracker = (id: string, name: string) => {
         Alert.alert(
             "Delete Tracker",
@@ -139,6 +142,28 @@ export default function SettingsScreen() {
                     </TouchableOpacity>
                 </View>
 
+                <View style={[styles.section, styles.aboutSection]}>
+                    <Text style={styles.sectionTitle}>About</Text>
+                    <View style={styles.aboutCard}>
+                        <Ionicons name="code-slash-outline" size={32} color={theme.colors.accent} style={styles.aboutIcon} />
+                        <Text style={styles.aboutTitle}>Momentum</Text>
+                        <Text style={styles.aboutSubtitle}>Built by Syreese Delos Santos</Text>
+                        <Text style={styles.aboutNote}>Built in ~30 mins 🚀</Text>
+
+                        <View style={styles.statsContainer}>
+                            <View style={styles.statItem}>
+                                <Text style={styles.statValue}>{activeTrackersCount}</Text>
+                                <Text style={styles.statLabel}>Active Trackers</Text>
+                            </View>
+                            <View style={styles.statDivider} />
+                            <View style={styles.statItem}>
+                                <Text style={styles.statValue}>{totalActions}</Text>
+                                <Text style={styles.statLabel}>Total Actions</Text>
+                            </View>
+                        </View>
+                    </View>
+                </View>
+
             </ScrollView>
         </View>
     );
@@ -215,5 +240,75 @@ const styles = StyleSheet.create({
     },
     clearButton: {
         backgroundColor: theme.colors.danger,
+    },
+    aboutSection: {
+        marginTop: theme.spacing.l,
+        marginBottom: 40,
+    },
+    aboutCard: {
+        backgroundColor: theme.colors.surface,
+        padding: theme.spacing.l,
+        borderRadius: 16,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: theme.colors.background, // Subtle border
+        // Shadow for iOS
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.30,
+        shadowRadius: 4.65,
+        // Elevation for Android
+        elevation: 8,
+    },
+    aboutIcon: {
+        marginBottom: theme.spacing.s,
+    },
+    aboutTitle: {
+        fontSize: theme.fontSizes.xl,
+        fontWeight: 'bold',
+        color: theme.colors.text,
+        marginBottom: 4,
+    },
+    aboutSubtitle: {
+        fontSize: theme.fontSizes.m,
+        color: theme.colors.primary,
+        fontWeight: '600',
+        marginBottom: theme.spacing.s,
+    },
+    aboutNote: {
+        fontSize: theme.fontSizes.s,
+        color: theme.colors.secondary,
+        fontStyle: 'italic',
+        marginBottom: theme.spacing.l,
+    },
+    statsContainer: {
+        flexDirection: 'row',
+        width: '100%',
+        justifyContent: 'space-around',
+        alignItems: 'center',
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.background,
+        paddingTop: theme.spacing.m,
+    },
+    statItem: {
+        alignItems: 'center',
+    },
+    statValue: {
+        fontSize: theme.fontSizes.l,
+        fontWeight: 'bold',
+        color: theme.colors.accent,
+    },
+    statLabel: {
+        fontSize: theme.fontSizes.s,
+        color: theme.colors.secondary,
+        marginTop: 4,
+    },
+    statDivider: {
+        width: 1,
+        height: '80%',
+        backgroundColor: theme.colors.background,
     },
 });
