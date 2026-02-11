@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Tracker, HistoryLog } from '../types';
-import { saveData, loadData } from '../utils/storage';
+import { saveData, loadData, clearAllData as clearStorage } from '../utils/storage';
 import { checkAndResetDailyCounts } from '../utils/dateLogic';
 
 interface TrackerContextType {
@@ -11,6 +11,7 @@ interface TrackerContextType {
     incrementTracker: (id: string) => void;
     decrementTracker: (id: string) => void;
     deleteTracker: (id: string) => void;
+    clearAllData: () => void;
 }
 
 const TrackerContext = createContext<TrackerContextType | undefined>(undefined);
@@ -99,6 +100,17 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
         setTrackers((prev) => prev.filter((tracker) => tracker.id !== id));
     };
 
+    const clearAllData = async () => {
+        try {
+            await clearStorage();
+            setTrackers([]);
+            setHistory([]);
+            saveData('lastActiveDate', ''); // Clear last active date
+        } catch (e) {
+            console.error("Failed to clear data", e);
+        }
+    };
+
     return (
         <TrackerContext.Provider
             value={{
@@ -109,6 +121,7 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
                 incrementTracker,
                 decrementTracker,
                 deleteTracker,
+                clearAllData,
             }}
         >
             {children}

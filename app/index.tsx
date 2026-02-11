@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { theme } from '../src/constants/theme';
 import { useTrackers } from '../src/context/TrackerContext';
 import { TrackerCard } from '../src/components/TrackerCard';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function HomeScreen() {
     const router = useRouter();
@@ -16,7 +17,12 @@ export default function HomeScreen() {
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <View style={styles.header}>
-                <Text style={styles.date}>{dateString}</Text>
+                <View style={styles.headerTop}>
+                    <Text style={styles.date}>{dateString}</Text>
+                    <TouchableOpacity onPress={() => router.push('/settings')}>
+                        <Ionicons name="settings-outline" size={24} color={theme.colors.secondary} />
+                    </TouchableOpacity>
+                </View>
                 <Text style={styles.title}>Daily Consistency</Text>
             </View>
 
@@ -57,12 +63,17 @@ const styles = StyleSheet.create({
         paddingTop: theme.spacing.m,
         paddingBottom: theme.spacing.l,
     },
+    headerTop: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: theme.spacing.s,
+    },
     date: {
         fontSize: theme.fontSizes.s,
         color: theme.colors.secondary,
         fontWeight: '600',
         letterSpacing: 1.5,
-        marginBottom: theme.spacing.s,
     },
     title: {
         fontSize: theme.fontSizes.xl,
