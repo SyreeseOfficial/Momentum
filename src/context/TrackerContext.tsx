@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Tracker, HistoryLog } from '../types';
 import { saveData, loadData } from '../utils/storage';
+import { checkAndResetDailyCounts } from '../utils/dateLogic';
 
 interface TrackerContextType {
     trackers: Tracker[];
@@ -35,11 +36,20 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
     useEffect(() => {
         const load = async () => {
             try {
-                const loadedTrackers = await loadData<Tracker[]>('trackers');
-                const loadedHistory = await loadData<HistoryLog>('history');
+                const loadedTrackers = await loadData<Tracker[]>('trackers') || [];
+                const loadedHistory = await loadData<HistoryLog>('history') || [];
+                const loadedDate = await loadData<string>('lastActiveDate') || '';
 
-                if (loadedTrackers) setTrackers(loadedTrackers);
-                if (loadedHistory) setHistory(loadedHistory);
+                const result = checkAndResetDailyCounts(loadedTrackers, loadedDate, loadedHistory);
+
+                if (result) {
+                    setTrackers(result.newTrackers);
+                    setHistory(result.newHistory);
+                    saveData('lastActiveDate', result.newDate);
+                } else {
+                    setTrackers(loadedTrackers);
+                    setHistory(loadedHistory);
+                }
             } catch (error) {
                 console.error("Failed to load tracker data", error);
             } finally {
