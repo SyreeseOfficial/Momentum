@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { theme } from '../constants/theme';
 
 interface TrackerCardProps {
@@ -15,9 +16,18 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
     count,
     goal,
     // onIncrement and onDecrement will be used when we add buttons
-    // onIncrement,
-    // onDecrement 
+    onIncrement,
+    onDecrement
 }) => {
+    const handleIncrement = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onIncrement();
+    };
+
+    const handleDecrement = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onDecrement();
+    };
     // Calculate percentage (clamped between 0 and 100)
     const percentage = Math.min(Math.max((count / goal) * 100, 0), 100);
     const isGoalMet = percentage >= 100;
@@ -41,6 +51,18 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
                     ]}
                 />
             </View>
+
+            {/* Control Surface */}
+            <TouchableOpacity
+                style={styles.decrementControl}
+                onPress={handleDecrement}
+                activeOpacity={0.7}
+            />
+            <TouchableOpacity
+                style={styles.incrementControl}
+                onPress={handleIncrement}
+                activeOpacity={0.7}
+            />
         </View>
     );
 };
@@ -85,5 +107,21 @@ const styles = StyleSheet.create({
     },
     progressBarFill: {
         height: '100%',
+    },
+    decrementControl: {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: '30%',
+        zIndex: 1,
+    },
+    incrementControl: {
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        bottom: 0,
+        width: '70%',
+        zIndex: 1,
     },
 });
