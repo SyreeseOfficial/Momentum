@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, Text, View, ScrollView, FlatList } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, FlatList, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { theme } from '../src/constants/theme';
@@ -7,6 +8,7 @@ import { useTrackers } from '../src/context/TrackerContext';
 import { TrackerCard } from '../src/components/TrackerCard';
 
 export default function HomeScreen() {
+    const router = useRouter();
     const { trackers, incrementTracker, decrementTracker } = useTrackers();
     const today = new Date();
     const dateString = format(today, 'EEE, MMM d').toUpperCase();
@@ -33,6 +35,14 @@ export default function HomeScreen() {
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
             />
+
+            <TouchableOpacity
+                style={styles.fab}
+                onPress={() => router.push('/add-tracker')}
+                activeOpacity={0.8}
+            >
+                <Text style={styles.fabText}>+</Text>
+            </TouchableOpacity>
         </SafeAreaView>
     );
 }
@@ -61,6 +71,28 @@ const styles = StyleSheet.create({
     },
     listContent: {
         paddingHorizontal: theme.spacing.m,
-        paddingBottom: theme.spacing.xl,
-    }
+        paddingBottom: theme.spacing.xl + 80, // Extra padding for FAB
+    },
+    fab: {
+        position: 'absolute',
+        bottom: theme.spacing.xl,
+        right: theme.spacing.m,
+        backgroundColor: theme.colors.accent,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 6,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.27,
+        shadowRadius: 4.65,
+    },
+    fabText: {
+        fontSize: 32,
+        color: '#FFFFFF',
+        fontWeight: 'bold',
+        marginTop: -2,
+    },
 });
