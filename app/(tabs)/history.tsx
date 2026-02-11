@@ -2,10 +2,10 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useTrackers } from '../src/context/TrackerContext';
-import { theme } from '../src/constants/theme';
+import { useTrackers } from '../../src/context/TrackerContext';
+import { theme } from '../../src/constants/theme';
 import { format, parseISO, subDays, isAfter, startOfDay } from 'date-fns';
-import { HistoryRecord } from '../src/types';
+import { HistoryRecord } from '../../src/types';
 
 
 // --- Components ---
@@ -70,11 +70,7 @@ export default function HistoryScreen() {
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <View style={styles.topBar}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <Text style={{ fontSize: 24, color: theme.colors.primary, fontWeight: 'bold' }}>←</Text>
-                </TouchableOpacity>
                 <Text style={styles.screenTitle}>History</Text>
-                <View style={{ width: 24 }} />
             </View>
 
             <FlatList

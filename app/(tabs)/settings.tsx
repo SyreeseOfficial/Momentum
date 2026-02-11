@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useTrackers } from '../src/context/TrackerContext';
-import { theme } from '../src/constants/theme';
+import { useTrackers } from '../../src/context/TrackerContext';
+import { theme } from '../../src/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -70,9 +70,16 @@ export default function SettingsScreen() {
             }
 
             // Define file path
+            // @ts-ignore
+            if (!FileSystem.cacheDirectory) {
+                Alert.alert("Error", "Cache directory not found.");
+                return;
+            }
+            // @ts-ignore
             const fileUri = FileSystem.cacheDirectory + "MomentumData.csv";
 
             // Write to file
+            // @ts-ignore
             await FileSystem.writeAsStringAsync(fileUri, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
 
             // Share file
@@ -91,9 +98,6 @@ export default function SettingsScreen() {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color={theme.colors.primary} />
-                </TouchableOpacity>
                 <Text style={styles.title}>Settings</Text>
             </View>
 
