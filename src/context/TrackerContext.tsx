@@ -1,9 +1,11 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Tracker, HistoryLog } from '../types';
+import { saveData, loadData } from '../utils/storage';
 
 interface TrackerContextType {
     trackers: Tracker[];
     history: HistoryLog;
+    isLoading: boolean;
     addTracker: (name: string, dailyGoal: number) => void;
     incrementTracker: (id: string) => void;
     decrementTracker: (id: string) => void;
@@ -27,10 +29,37 @@ interface TrackerProviderProps {
 export const TrackerProvider = ({ children }: TrackerProviderProps) => {
     const [trackers, setTrackers] = useState<Tracker[]>([]);
     const [history, setHistory] = useState<HistoryLog>([]);
+    const [isLoading, setIsLoading] = useState<boolean>(true);
+
+    // Load data on mount
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const loadedTrackers = await loadData<Tracker[]>('trackers');
+                const loadedHistory = await loadData<HistoryLog>('history');
+
+                if (loadedTrackers) setTrackers(loadedTrackers);
+                if (loadedHistory) setHistory(loadedHistory);
+            } catch (error) {
+                console.error("Failed to load tracker data", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        load();
+    }, []);
+
+    // Save data whenever trackers or history changes
+    useEffect(() => {
+        if (!isLoading) {
+            saveData('trackers', trackers);
+            saveData('history', history);
+        }
+    }, [trackers, history, isLoading]);
 
     const addTracker = (name: string, dailyGoal: number) => {
         const newTracker: Tracker = {
-            id: Date.now().toString(),
+            id: Math.random().toString(36).substr(2, 9),
             name,
             count: 0,
             dailyGoal,
@@ -65,6 +94,7 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
             value={{
                 trackers,
                 history,
+                isLoading,
                 addTracker,
                 incrementTracker,
                 decrementTracker,
