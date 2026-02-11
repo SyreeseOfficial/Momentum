@@ -1,12 +1,13 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { theme } from '../src/constants/theme';
 import { useTrackers } from '../src/context/TrackerContext';
+import { TrackerCard } from '../src/components/TrackerCard';
 
 export default function HomeScreen() {
-    const { trackers } = useTrackers();
+    const { trackers, incrementTracker, decrementTracker } = useTrackers();
     const today = new Date();
     const dateString = format(today, 'EEE, MMM d').toUpperCase();
 
@@ -16,6 +17,22 @@ export default function HomeScreen() {
                 <Text style={styles.date}>{dateString}</Text>
                 <Text style={styles.title}>Daily Consistency</Text>
             </View>
+
+            <FlatList
+                data={trackers}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                    <TrackerCard
+                        name={item.name}
+                        count={item.count}
+                        goal={item.dailyGoal}
+                        onIncrement={() => incrementTracker(item.id)}
+                        onDecrement={() => decrementTracker(item.id)}
+                    />
+                )}
+                contentContainerStyle={styles.listContent}
+                showsVerticalScrollIndicator={false}
+            />
         </SafeAreaView>
     );
 }
@@ -42,4 +59,8 @@ const styles = StyleSheet.create({
         color: theme.colors.primary,
         fontWeight: 'bold',
     },
+    listContent: {
+        paddingHorizontal: theme.spacing.m,
+        paddingBottom: theme.spacing.xl,
+    }
 });
