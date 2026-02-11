@@ -1,9 +1,10 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { TrackerProvider } from '../src/context/TrackerContext';
 
 export default function RootLayout() {
     return (
-        <>
+        <TrackerProvider>
             <StatusBar style="light" />
             <Stack
                 screenOptions={{
@@ -13,6 +14,6 @@ export default function RootLayout() {
                     },
                 }}
             />
-        </>
+        </TrackerProvider>
     );
 }
