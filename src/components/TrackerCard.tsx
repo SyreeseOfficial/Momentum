@@ -20,7 +20,12 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
     onDecrement
 }) => {
     const handleIncrement = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        const newCount = count + 1;
+        if (newCount === goal) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
         onIncrement();
     };
 

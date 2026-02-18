@@ -19,7 +19,8 @@ export default function SettingsScreen() {
         notificationEnabled,
         notificationTime,
         toggleNotification,
-        updateNotificationTime
+        updateNotificationTime,
+        resetToday
     } = useTrackers();
 
     const [showTimePicker, setShowTimePicker] = useState(false);
@@ -70,24 +71,8 @@ export default function SettingsScreen() {
                     text: "Reset",
                     style: "destructive",
                     onPress: () => {
-                        // To reset today, we just save a history record for today with 0 volume
-                        // or we could add a specific function in context, but this works if we re-initialize
-                        // Actually, easiest is to just zero out the current trackers in context?
-                        // But context doesn't expose setTrackers directly.
-                        // We can simulate it by decrementing? No, too slow.
-                        // Let's use saveHistoryRecord to overwrite today with 0s?
-                        // Wait, trackers state in context is separate from history for 'today'.
-                        // We need a resetTrackers function in context ideally, but we can hack it for now
-                        // by iterating and value setting if we had that, but we don't.
-                        // Let's add a TODO or just omit if too complex without context change.
-                        // Actually, looking at context, 'trackers' has the current count.
-                        // We need to update 'trackers' state to 0.
-                        // We can't do that easily without a new context function.
-                        // Let's assume for now we just clear history for today? No that doesn't reset active counters.
-                        // I will skip Reset Today logic for now efficiently and focusing on the requested "Settings Options"
-                        // which were vague ("more settings options").
-                        // Let's add "Notifications" toggle (visual) and "About" improvements.
-                        Alert.alert("Feature coming soon", "This feature is not yet implemented.");
+                        resetToday();
+                        Alert.alert("Success", "Today's progress has been reset.");
                     }
                 }
             ]

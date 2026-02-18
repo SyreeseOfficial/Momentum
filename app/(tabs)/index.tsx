@@ -5,12 +5,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { theme } from '../../src/constants/theme';
 import { useTrackers } from '../../src/context/TrackerContext';
+import { useStreaks } from '../../src/hooks/useStreaks';
 import { TrackerCard } from '../../src/components/TrackerCard';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function HomeScreen() {
     const router = useRouter();
     const { trackers, incrementTracker, decrementTracker } = useTrackers();
+    const { currentStreak, bestStreak } = useStreaks();
     const today = new Date();
     const dateString = format(today, 'EEE, MMM d').toUpperCase();
 
@@ -19,6 +21,10 @@ export default function HomeScreen() {
             <View style={styles.header}>
                 <View style={styles.headerTop}>
                     <Text style={styles.date}>{dateString}</Text>
+                    <View style={styles.streakContainer}>
+                        <Text style={styles.streakText}>🔥 {currentStreak}</Text>
+                        <Text style={[styles.streakText, { marginLeft: 12 }]}>🏆 {bestStreak}</Text>
+                    </View>
                 </View>
                 <Text style={styles.title}>Daily Consistency</Text>
             </View>
@@ -46,7 +52,7 @@ export default function HomeScreen() {
             >
                 <Text style={styles.fabText}>+</Text>
             </TouchableOpacity>
-        </SafeAreaView>
+        </SafeAreaView >
     );
 }
 
@@ -72,6 +78,15 @@ const styles = StyleSheet.create({
         color: theme.colors.secondary,
         fontWeight: '600',
         letterSpacing: 1.5,
+    },
+    streakContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    streakText: {
+        fontSize: theme.fontSizes.m,
+        color: theme.colors.text,
+        fontWeight: 'bold',
     },
     title: {
         fontSize: theme.fontSizes.xl,

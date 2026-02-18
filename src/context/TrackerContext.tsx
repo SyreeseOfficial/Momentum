@@ -23,6 +23,7 @@ interface TrackerContextType {
     notificationTime: Date | null;
     toggleNotification: (enabled: boolean) => Promise<void>;
     updateNotificationTime: (date: Date) => Promise<void>;
+    resetToday: () => void;
 }
 
 const TrackerContext = createContext<TrackerContextType | undefined>(undefined);
@@ -180,6 +181,12 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
         }
     };
 
+    const resetToday = () => {
+        setTrackers((prev) =>
+            prev.map((tracker) => ({ ...tracker, count: 0 }))
+        );
+    };
+
     return (
         <TrackerContext.Provider
             value={{
@@ -196,7 +203,9 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
                 notificationEnabled,
                 notificationTime,
                 toggleNotification,
+                toggleNotification,
                 updateNotificationTime,
+                resetToday,
             }}
         >
             {children}
