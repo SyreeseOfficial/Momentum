@@ -203,7 +203,6 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
                 notificationEnabled,
                 notificationTime,
                 toggleNotification,
-                toggleNotification,
                 updateNotificationTime,
                 resetToday,
             }}

@@ -223,11 +223,19 @@ export default function SettingsScreen() {
                     </TouchableOpacity>
 
                     <TouchableOpacity
+                        style={[styles.actionButton, styles.resetButton]}
+                        onPress={handleResetToday}
+                    >
+                        <Ionicons name="refresh-outline" size={20} color={theme.colors.danger} />
+                        <Text style={[styles.actionButtonText, { color: theme.colors.danger }]}>Reset Today's Progress</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
                         style={[styles.actionButton, styles.clearButton]}
                         onPress={handleClearAllData}
                     >
-                        <Ionicons name="trash-outline" size={20} color={theme.colors.primary} />
-                        <Text style={[styles.actionButtonText, { color: theme.colors.primary }]}>Clear All Data</Text>
+                        <Ionicons name="trash-outline" size={20} color={theme.colors.background} />
+                        <Text style={[styles.actionButtonText, { color: theme.colors.background }]}>Clear All Data</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -337,6 +345,11 @@ const styles = StyleSheet.create({
     },
     clearButton: {
         backgroundColor: theme.colors.danger,
+    },
+    resetButton: {
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        borderColor: theme.colors.danger,
     },
     aboutSection: {
         marginTop: theme.spacing.l,
