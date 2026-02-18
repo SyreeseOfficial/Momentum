@@ -1,15 +1,28 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Switch, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTrackers } from '../../src/context/TrackerContext';
 import { theme } from '../../src/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { useState } from 'react';
 
 export default function SettingsScreen() {
     const router = useRouter();
-    const { trackers, history, deleteTracker, clearAllData, saveHistoryRecord } = useTrackers();
+    const {
+        trackers,
+        history,
+        deleteTracker,
+        clearAllData,
+        notificationEnabled,
+        notificationTime,
+        toggleNotification,
+        updateNotificationTime
+    } = useTrackers();
+
+    const [showTimePicker, setShowTimePicker] = useState(false);
 
     const totalActions = history.reduce((acc, record) => acc + record.totalVolume, 0);
     const activeTrackersCount = trackers.length;
@@ -128,6 +141,18 @@ export default function SettingsScreen() {
             Alert.alert("Error", "Failed to export data. Please try again.");
         }
     };
+    const onTimeChange = (event: any, selectedDate?: Date) => {
+        const currentDate = selectedDate || notificationTime;
+        setShowTimePicker(Platform.OS === 'ios');
+        if (currentDate) {
+            updateNotificationTime(currentDate);
+        }
+    };
+
+    const formatTime = (date: Date | null) => {
+        if (!date) return '9:00 AM';
+        return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    };
 
     return (
         <View style={styles.container}>
@@ -160,11 +185,51 @@ export default function SettingsScreen() {
                     <Text style={styles.sectionTitle}>Data Management</Text>
 
                     <View style={styles.settingRow}>
-                        <Text style={styles.settingLabel}>Daily Remainders</Text>
-                        <TouchableOpacity onPress={() => Alert.alert("Coming Soon", "Notifications are not yet implemented.")}>
-                            <Ionicons name="notifications-outline" size={24} color={theme.colors.primary} />
-                        </TouchableOpacity>
+                        <View>
+                            <Text style={styles.settingLabel}>Daily Reminders</Text>
+                            <Text style={styles.settingSubLabel}>Get notified to log your progress</Text>
+                        </View>
+                        <Switch
+                            trackColor={{ false: theme.colors.surface, true: theme.colors.primary }}
+                            thumbColor={theme.colors.text}
+                            ios_backgroundColor={theme.colors.surface}
+                            onValueChange={toggleNotification}
+                            value={notificationEnabled}
+                        />
                     </View>
+
+                    {notificationEnabled && (
+                        <View style={styles.settingRow}>
+                            <Text style={styles.settingLabel}>Reminder Time</Text>
+                            {Platform.OS === 'android' && (
+                                <TouchableOpacity onPress={() => setShowTimePicker(true)}>
+                                    <Text style={styles.timeValue}>{formatTime(notificationTime)}</Text>
+                                </TouchableOpacity>
+                            )}
+                            {Platform.OS === 'ios' && (
+                                <DateTimePicker
+                                    testID="dateTimePicker"
+                                    value={notificationTime || new Date()}
+                                    mode="time"
+                                    is24Hour={false}
+                                    display="default"
+                                    onChange={onTimeChange}
+                                    themeVariant="dark"
+                                />
+                            )}
+                        </View>
+                    )}
+
+                    {showTimePicker && Platform.OS === 'android' && (
+                        <DateTimePicker
+                            testID="dateTimePicker"
+                            value={notificationTime || new Date()}
+                            mode="time"
+                            is24Hour={false}
+                            display="default"
+                            onChange={onTimeChange}
+                        />
+                    )}
 
 
                     <TouchableOpacity style={styles.actionButton} onPress={handleExportData}>
@@ -361,5 +426,15 @@ const styles = StyleSheet.create({
     settingLabel: {
         fontSize: theme.fontSizes.m,
         color: theme.colors.text,
+    },
+    settingSubLabel: {
+        fontSize: theme.fontSizes.s,
+        color: theme.colors.secondary,
+        marginTop: 2,
+    },
+    timeValue: {
+        fontSize: theme.fontSizes.m,
+        color: theme.colors.accent,
+        fontWeight: 'bold',
     },
 });

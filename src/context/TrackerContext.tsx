@@ -2,6 +2,11 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Tracker, HistoryLog, HistoryRecord } from '../types';
 import { saveData, loadData, clearAllData as clearStorage } from '../utils/storage';
 import { checkAndResetDailyCounts } from '../utils/dateLogic';
+import {
+    registerForPushNotificationsAsync,
+    scheduleDailyReminder,
+    cancelAllNotifications
+} from '../utils/notifications';
 
 interface TrackerContextType {
     trackers: Tracker[];
@@ -14,6 +19,10 @@ interface TrackerContextType {
     saveHistoryRecord: (record: HistoryRecord) => void;
     deleteHistoryRecord: (date: string) => void;
     clearAllData: () => void;
+    notificationEnabled: boolean;
+    notificationTime: Date | null;
+    toggleNotification: (enabled: boolean) => Promise<void>;
+    updateNotificationTime: (date: Date) => Promise<void>;
 }
 
 const TrackerContext = createContext<TrackerContextType | undefined>(undefined);
@@ -34,6 +43,8 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
     const [trackers, setTrackers] = useState<Tracker[]>([]);
     const [history, setHistory] = useState<HistoryLog>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
+    const [notificationEnabled, setNotificationEnabled] = useState<boolean>(false);
+    const [notificationTime, setNotificationTime] = useState<Date | null>(null);
 
     // Load data on mount
     useEffect(() => {
@@ -42,6 +53,13 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
                 const loadedTrackers = await loadData<Tracker[]>('trackers') || [];
                 const loadedHistory = await loadData<HistoryLog>('history') || [];
                 const loadedDate = await loadData<string>('lastActiveDate') || '';
+                const loadedNotificationEnabled = await loadData<boolean>('notificationEnabled') || false;
+                const loadedNotificationTime = await loadData<string>('notificationTime');
+
+                setNotificationEnabled(loadedNotificationEnabled);
+                if (loadedNotificationTime) {
+                    setNotificationTime(new Date(loadedNotificationTime));
+                }
 
                 const result = checkAndResetDailyCounts(loadedTrackers, loadedDate, loadedHistory);
 
@@ -124,9 +142,41 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
             await clearStorage();
             setTrackers([]);
             setHistory([]);
+            setNotificationEnabled(false);
+            setNotificationTime(null);
+            await cancelAllNotifications();
             saveData('lastActiveDate', ''); // Clear last active date
         } catch (e) {
             console.error("Failed to clear data", e);
+        }
+    };
+
+    const toggleNotification = async (enabled: boolean) => {
+        setNotificationEnabled(enabled);
+        saveData('notificationEnabled', enabled);
+
+        if (enabled) {
+            await registerForPushNotificationsAsync();
+            if (notificationTime) {
+                await scheduleDailyReminder(notificationTime);
+            } else {
+                // Default to 9 AM if no time set
+                const now = new Date();
+                now.setHours(9, 0, 0, 0);
+                setNotificationTime(now);
+                saveData('notificationTime', now.toISOString());
+                await scheduleDailyReminder(now);
+            }
+        } else {
+            await cancelAllNotifications();
+        }
+    };
+
+    const updateNotificationTime = async (date: Date) => {
+        setNotificationTime(date);
+        saveData('notificationTime', date.toISOString());
+        if (notificationEnabled) {
+            await scheduleDailyReminder(date);
         }
     };
 
@@ -143,6 +193,10 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
                 saveHistoryRecord,
                 deleteHistoryRecord,
                 clearAllData,
+                notificationEnabled,
+                notificationTime,
+                toggleNotification,
+                updateNotificationTime,
             }}
         >
             {children}
