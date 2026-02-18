@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Tracker, HistoryLog } from '../types';
+import { Tracker, HistoryLog, HistoryRecord } from '../types';
 import { saveData, loadData, clearAllData as clearStorage } from '../utils/storage';
 import { checkAndResetDailyCounts } from '../utils/dateLogic';
 

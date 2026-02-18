@@ -4,22 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTrackers } from '../../src/context/TrackerContext';
 import { theme } from '../../src/constants/theme';
-import { format, parseISO, subDays, isAfter, startOfDay } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
 import { HistoryRecord } from '../../src/types';
 
 
 // --- Components ---
 
-const HistoryHeader = ({ weeklyVolume }: { weeklyVolume: number }) => (
-    <View style={styles.headerContainer}>
-        <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Weekly Volume</Text>
-            <Text style={styles.headerValue}>{weeklyVolume}</Text>
-            <Text style={styles.headerSubtitle}>Total volume in the last 7 days</Text>
-        </View>
-    </View>
-);
+
 
 const HistoryItem = ({ item }: { item: HistoryRecord }) => {
     const router = useRouter();
@@ -60,17 +52,7 @@ export default function HistoryScreen() {
         });
     }, [history]);
 
-    const weeklyVolume = useMemo(() => {
-        const today = startOfDay(new Date());
-        const sevenDaysAgo = subDays(today, 7);
 
-        return history
-            .filter((record) => {
-                const recordDate = parseISO(record.date);
-                return isAfter(recordDate, sevenDaysAgo);
-            })
-            .reduce((sum, record) => sum + record.totalVolume, 0);
-    }, [history]);
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -85,7 +67,6 @@ export default function HistoryScreen() {
                 data={sortedHistory}
                 keyExtractor={(item) => item.date}
                 renderItem={({ item }) => <HistoryItem item={item} />}
-                ListHeaderComponent={<HistoryHeader weeklyVolume={weeklyVolume} />}
                 contentContainerStyle={styles.listContent}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
@@ -124,39 +105,7 @@ const styles = StyleSheet.create({
         padding: theme.spacing.m,
         paddingBottom: 100, // Extra padding for bottom
     },
-    // Header Widget Styles
-    headerContainer: {
-        marginBottom: theme.spacing.l,
-        backgroundColor: theme.colors.surface,
-        borderRadius: 16,
-        padding: theme.spacing.l,
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
-        elevation: 6,
-    },
-    headerContent: {
-        alignItems: 'center',
-    },
-    headerTitle: {
-        fontSize: theme.fontSizes.m,
-        color: theme.colors.secondary,
-        marginBottom: theme.spacing.s,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-    },
-    headerValue: {
-        fontSize: 48, // Big Prominent Number
-        fontWeight: 'bold',
-        color: theme.colors.accent,
-        marginBottom: theme.spacing.s,
-    },
-    headerSubtitle: {
-        fontSize: theme.fontSizes.s,
-        color: theme.colors.secondary,
-    },
+
     // History Item Styles
     itemContainer: {
         backgroundColor: theme.colors.surface,

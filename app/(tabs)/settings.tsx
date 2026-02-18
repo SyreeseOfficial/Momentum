@@ -106,15 +106,15 @@ export default function SettingsScreen() {
                 return;
             }
 
-            // Define file path - use documentDirectory to avoid cache issues
-            if (!FileSystem.documentDirectory) {
+            // Define file path - use documentDirectory
+            if (!(FileSystem as any).documentDirectory) {
                 Alert.alert("Error", "Document directory not found.");
                 return;
             }
-            const fileUri = FileSystem.documentDirectory + "MomentumData.csv";
+            const fileUri = (FileSystem as any).documentDirectory + "MomentumData.csv";
 
             // Write to file
-            await FileSystem.writeAsStringAsync(fileUri, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
+            await FileSystem.writeAsStringAsync(fileUri, csvContent, { encoding: 'utf8' });
 
             // Share file
             if (await Sharing.isAvailableAsync()) {
@@ -349,5 +349,17 @@ const styles = StyleSheet.create({
         width: 1,
         height: '80%',
         backgroundColor: theme.colors.background,
+    },
+    settingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: theme.spacing.m,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.surface,
+    },
+    settingLabel: {
+        fontSize: theme.fontSizes.m,
+        color: theme.colors.text,
     },
 });
