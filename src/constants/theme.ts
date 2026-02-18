@@ -8,6 +8,7 @@ export const theme = {
     accent: '#6366F1',     // Electric Indigo
     success: '#10B981',    // Emerald Green
     danger: '#CF6679',     // Muted Crimson
+    text: '#FFFFFF',       // White for primary text
   },
   spacing: {
     s: 8,

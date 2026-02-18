@@ -11,6 +11,8 @@ interface TrackerContextType {
     incrementTracker: (id: string) => void;
     decrementTracker: (id: string) => void;
     deleteTracker: (id: string) => void;
+    saveHistoryRecord: (record: HistoryRecord) => void;
+    deleteHistoryRecord: (date: string) => void;
     clearAllData: () => void;
 }
 
@@ -100,6 +102,23 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
         setTrackers((prev) => prev.filter((tracker) => tracker.id !== id));
     };
 
+    const saveHistoryRecord = (record: HistoryRecord) => {
+        setHistory((prev) => {
+            const existingIndex = prev.findIndex((r) => r.date === record.date);
+            if (existingIndex >= 0) {
+                const newHistory = [...prev];
+                newHistory[existingIndex] = record;
+                return newHistory;
+            } else {
+                return [...prev, record];
+            }
+        });
+    };
+
+    const deleteHistoryRecord = (date: string) => {
+        setHistory((prev) => prev.filter((record) => record.date !== date));
+    };
+
     const clearAllData = async () => {
         try {
             await clearStorage();
@@ -121,6 +140,8 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
                 incrementTracker,
                 decrementTracker,
                 deleteTracker,
+                saveHistoryRecord,
+                deleteHistoryRecord,
                 clearAllData,
             }}
         >

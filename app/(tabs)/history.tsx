@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { useTrackers } from '../../src/context/TrackerContext';
 import { theme } from '../../src/constants/theme';
 import { format, parseISO, subDays, isAfter, startOfDay } from 'date-fns';
+import { Ionicons } from '@expo/vector-icons';
 import { HistoryRecord } from '../../src/types';
 
 
@@ -21,11 +22,15 @@ const HistoryHeader = ({ weeklyVolume }: { weeklyVolume: number }) => (
 );
 
 const HistoryItem = ({ item }: { item: HistoryRecord }) => {
+    const router = useRouter();
     const date = parseISO(item.date);
     const formattedDate = format(date, 'EEE, MMM d');
 
     return (
-        <View style={styles.itemContainer}>
+        <TouchableOpacity
+            style={styles.itemContainer}
+            onPress={() => router.push({ pathname: "/edit-history", params: { date: item.date } })}
+        >
             <View style={styles.itemHeader}>
                 <Text style={styles.itemDate}>{formattedDate}</Text>
                 <Text style={styles.itemVolume}>Total Volume: {item.totalVolume}</Text>
@@ -37,7 +42,7 @@ const HistoryItem = ({ item }: { item: HistoryRecord }) => {
                     </Text>
                 ))}
             </View>
-        </View>
+        </TouchableOpacity>
     );
 };
 
@@ -71,6 +76,9 @@ export default function HistoryScreen() {
         <SafeAreaView style={styles.container} edges={['top']}>
             <View style={styles.topBar}>
                 <Text style={styles.screenTitle}>History</Text>
+                <TouchableOpacity onPress={() => router.push("/edit-history")}>
+                    <Ionicons name="add-circle-outline" size={28} color={theme.colors.primary} />
+                </TouchableOpacity>
             </View>
 
             <FlatList
