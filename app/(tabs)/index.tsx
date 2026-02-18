@@ -57,8 +57,9 @@ const styles = StyleSheet.create({
     },
     header: {
         paddingHorizontal: theme.spacing.m,
-        paddingTop: theme.spacing.m,
-        paddingBottom: theme.spacing.l,
+        paddingVertical: theme.spacing.m,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.surface,
     },
     headerTop: {
         flexDirection: 'row',
@@ -74,7 +75,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: theme.fontSizes.xl,
-        color: theme.colors.primary,
+        color: theme.colors.text,
         fontWeight: 'bold',
     },
     listContent: {

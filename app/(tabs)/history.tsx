@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: theme.spacing.m,
-        paddingVertical: theme.spacing.s,
+        paddingVertical: theme.spacing.m,
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.surface,
     },
@@ -97,9 +97,9 @@ const styles = StyleSheet.create({
         padding: theme.spacing.s,
     },
     screenTitle: {
-        fontSize: theme.fontSizes.l,
+        fontSize: theme.fontSizes.xl,
         fontWeight: 'bold',
-        color: theme.colors.primary,
+        color: theme.colors.text,
     },
     listContent: {
         padding: theme.spacing.m,

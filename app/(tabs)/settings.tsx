@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Switch, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Switch, Platform, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTrackers } from '../../src/context/TrackerContext';
 import { theme } from '../../src/constants/theme';
@@ -254,6 +254,14 @@ export default function SettingsScreen() {
                         <Text style={styles.aboutSubtitle}>Built by Syreese Delos Santos</Text>
                         <Text style={styles.aboutNote}>Built in ~30 mins 🚀</Text>
 
+                        <TouchableOpacity
+                            style={styles.githubButton}
+                            onPress={() => Linking.openURL('https://github.com/SyreeseOfficial/Momentum')}
+                        >
+                            <Ionicons name="logo-github" size={20} color={theme.colors.text} />
+                            <Text style={styles.githubButtonText}>View Source on GitHub</Text>
+                        </TouchableOpacity>
+
                         <View style={styles.statsContainer}>
                             <View style={styles.statItem}>
                                 <Text style={styles.statValue}>{activeTrackersCount}</Text>
@@ -436,5 +444,20 @@ const styles = StyleSheet.create({
         fontSize: theme.fontSizes.m,
         color: theme.colors.accent,
         fontWeight: 'bold',
+    },
+    githubButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.background,
+        paddingHorizontal: theme.spacing.m,
+        paddingVertical: theme.spacing.s,
+        borderRadius: 20,
+        marginBottom: theme.spacing.l,
+        gap: 8,
+    },
+    githubButtonText: {
+        color: theme.colors.text,
+        fontWeight: '600',
+        fontSize: theme.fontSizes.s,
     },
 });
