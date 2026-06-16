@@ -13,8 +13,8 @@ interface TrackerContextType {
     history: HistoryLog;
     isLoading: boolean;
     unlockedAchievements: AchievementId[];
-    addTracker: (name: string, dailyGoal: number, emoji?: string) => void;
-    editTracker: (id: string, updates: { name: string; dailyGoal: number; emoji?: string }) => void;
+    addTracker: (name: string, dailyGoal: number, emoji?: string, trackerType?: import('../types').TrackerType, timerIncrement?: number) => void;
+    editTracker: (id: string, updates: { name: string; dailyGoal: number; emoji?: string; trackerType?: import('../types').TrackerType; timerIncrement?: number }) => void;
     archiveTracker: (id: string) => void;
     unarchiveTracker: (id: string) => void;
     incrementTracker: (id: string) => void;
@@ -110,7 +110,7 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
         }
     }, [trackers, history, unlockedAchievements, isLoading]);
 
-    const addTracker = (name: string, dailyGoal: number, emoji?: string) => {
+    const addTracker = (name: string, dailyGoal: number, emoji?: string, trackerType?: Tracker['trackerType'], timerIncrement?: number) => {
         const newTracker: Tracker = {
             id: Math.random().toString(36).substr(2, 9),
             name,
@@ -119,11 +119,13 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
             sortOrder: trackers.length,
             isActive: true,
             emoji: emoji || undefined,
+            trackerType: trackerType || 'count',
+            timerIncrement: trackerType === 'timer' ? (timerIncrement ?? 30) : undefined,
         };
         setTrackers((prev) => [...prev, newTracker]);
     };
 
-    const editTracker = (id: string, updates: { name: string; dailyGoal: number; emoji?: string }) => {
+    const editTracker = (id: string, updates: { name: string; dailyGoal: number; emoji?: string; trackerType?: Tracker['trackerType']; timerIncrement?: number }) => {
         setTrackers(prev =>
             prev.map(t => t.id === id ? { ...t, ...updates } : t)
         );
@@ -146,19 +148,23 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
     };
 
     const incrementTracker = (id: string) => {
-        setTrackers((prev) =>
-            prev.map((tracker) =>
-                tracker.id === id ? { ...tracker, count: tracker.count + 1 } : tracker
-            )
-        );
+        setTrackers(prev => prev.map(t => {
+            if (t.id !== id) return t;
+            const type = t.trackerType ?? 'count';
+            if (type === 'boolean') return { ...t, count: t.count === 0 ? 1 : 0 };
+            if (type === 'timer') return { ...t, count: t.count + (t.timerIncrement ?? 30) };
+            return { ...t, count: t.count + 1 };
+        }));
     };
 
     const decrementTracker = (id: string) => {
-        setTrackers((prev) =>
-            prev.map((tracker) =>
-                tracker.id === id ? { ...tracker, count: Math.max(0, tracker.count - 1) } : tracker
-            )
-        );
+        setTrackers(prev => prev.map(t => {
+            if (t.id !== id) return t;
+            const type = t.trackerType ?? 'count';
+            if (type === 'boolean') return { ...t, count: t.count === 0 ? 1 : 0 };
+            if (type === 'timer') return { ...t, count: Math.max(0, t.count - (t.timerIncrement ?? 30)) };
+            return { ...t, count: Math.max(0, t.count - 1) };
+        }));
     };
 
     const deleteTracker = (id: string) => {

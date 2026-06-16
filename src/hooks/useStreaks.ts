@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { useTrackers } from '../context/TrackerContext';
 import { HistoryRecord } from '../types';
-import { parseISO, subDays, isSameDay, format, startOfDay } from 'date-fns';
+import { isTrackerGoalMet } from '../types';
+import { parseISO, subDays, format, startOfDay } from 'date-fns';
 
 export const useStreaks = () => {
     const { history, trackers } = useTrackers();
@@ -19,7 +20,7 @@ export const useStreaks = () => {
 
         // Check today's status
         const activeTrackers = trackers.filter(t => t.isActive);
-        const isTodayPerfect = activeTrackers.length > 0 && activeTrackers.every(t => t.count >= t.dailyGoal);
+        const isTodayPerfect = activeTrackers.length > 0 && activeTrackers.every(t => isTrackerGoalMet(t));
 
         // If today is perfect, streak includes today. 
         // If not, we check if yesterday was perfect to see if streak is "alive" (but not incremented for today yet).
@@ -71,7 +72,11 @@ export const useStreaks = () => {
             if (record) {
                 // Check if this record was perfect
                 // A record is perfect if all tracked items in it met their goals.
-                const isRecordPerfect = record.details.length > 0 && record.details.every(d => d.count >= d.goal);
+                const isRecordPerfect = record.details.length > 0 && record.details.every(d => {
+                const t = trackers.find(tr => tr.name === d.trackerName);
+                if (t?.trackerType === 'negative') return d.count < d.goal;
+                return d.count >= d.goal;
+            });
 
                 if (isRecordPerfect) {
                     currentStreak++;
@@ -104,7 +109,11 @@ export const useStreaks = () => {
 
         // Add perfect days from history
         sortedHistory.forEach(h => {
-            if (h.details.length > 0 && h.details.every(d => d.count >= d.goal)) {
+            if (h.details.length > 0 && h.details.every(d => {
+                const t = trackers.find(tr => tr.name === d.trackerName);
+                if (t?.trackerType === 'negative') return d.count < d.goal;
+                return d.count >= d.goal;
+            })) {
                 perfectDates.add(h.date);
             }
         });

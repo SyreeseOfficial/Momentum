@@ -389,6 +389,123 @@ export const calculateMilestones = (
     };
 };
 
+export const calculateMonthComparison = (trackers: Tracker[], history: HistoryRecord[]) => {
+    const now = new Date();
+    const todayStr = getTodayString();
+    const todayVolume = calculateTodayVolume(trackers);
+
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
+
+    const thisMonthHistory = history.filter(r => r.date >= thisMonthStart && r.date < todayStr);
+    const lastMonthHistory = history.filter(r => r.date >= lastMonthStart && r.date <= lastMonthEnd);
+
+    const thisMonth = thisMonthHistory.reduce((s, r) => s + r.totalVolume, 0) + todayVolume;
+    const lastMonth = lastMonthHistory.reduce((s, r) => s + r.totalVolume, 0);
+    const change = lastMonth === 0 ? null : Math.round(((thisMonth - lastMonth) / lastMonth) * 100);
+
+    return { thisMonth, lastMonth, change, thisMonthLabel: now.toLocaleString('default', { month: 'long' }), lastMonthLabel: new Date(now.getFullYear(), now.getMonth() - 1).toLocaleString('default', { month: 'long' }) };
+};
+
+export const calculateLongestGap = (trackers: Tracker[], history: HistoryRecord[]): number => {
+    const today = getTodayString();
+    const activeDates = new Set([
+        ...history.filter(r => r.totalVolume > 0).map(r => r.date),
+        ...(calculateTodayVolume(trackers) > 0 ? [today] : []),
+    ]);
+
+    if (activeDates.size < 2) return 0;
+
+    const sorted = Array.from(activeDates).sort();
+    let maxGap = 0;
+
+    for (let i = 1; i < sorted.length; i++) {
+        const prev = new Date(sorted[i - 1]);
+        const curr = new Date(sorted[i]);
+        const gap = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24)) - 1;
+        if (gap > maxGap) maxGap = gap;
+    }
+
+    return maxGap;
+};
+
+export const calculateMonthlyTrend = (trackers: Tracker[], history: HistoryRecord[], months = 12) => {
+    const today = getTodayString();
+    const todayVolume = calculateTodayVolume(trackers);
+    const now = new Date();
+
+    return Array.from({ length: months }, (_, i) => {
+        const offset = months - 1 - i;
+        const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+        const monthStart = date.toISOString().split('T')[0];
+        const nextMonth = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+        const monthEnd = nextMonth.toISOString().split('T')[0];
+        const isCurrentMonth = offset === 0;
+
+        const monthHistory = history.filter(r => r.date >= monthStart && r.date < monthEnd);
+        const volume = monthHistory.reduce((s, r) => s + r.totalVolume, 0) + (isCurrentMonth ? todayVolume : 0);
+
+        return {
+            label: date.toLocaleString('default', { month: 'short' }),
+            volume,
+            isCurrent: isCurrentMonth,
+        };
+    });
+};
+
+export const calculateTrackerLifecycle = (trackers: Tracker[], history: HistoryRecord[]) => {
+    return trackers.filter(t => !t.isArchived && t.isActive).map(tracker => {
+        const appearances = history
+            .filter(r => r.details.some(d => d.trackerName === tracker.name))
+            .map(r => r.date)
+            .sort();
+        const today = getTodayString();
+        const hasToday = tracker.count > 0;
+
+        const firstDate = appearances[0] ?? (hasToday ? today : null);
+        const lastDate = hasToday ? today : appearances[appearances.length - 1] ?? null;
+        const totalDays = appearances.length + (hasToday ? 1 : 0);
+
+        return { name: tracker.name, emoji: tracker.emoji, firstDate, lastDate, totalDays };
+    });
+};
+
+export const calculateBestWeek = (trackers: Tracker[], history: HistoryRecord[]): { startDate: string; endDate: string; volume: number } | null => {
+    const today = getTodayString();
+    const todayVolume = calculateTodayVolume(trackers);
+
+    const allRecords = [
+        ...history,
+        ...(todayVolume > 0 ? [{ date: today, totalVolume: todayVolume, details: [] }] : []),
+    ].sort((a, b) => a.date.localeCompare(b.date));
+
+    if (allRecords.length === 0) return null;
+
+    let bestVolume = 0;
+    let bestStart = '';
+    let bestEnd = '';
+
+    for (let i = 0; i < allRecords.length; i++) {
+        const windowStart = new Date(allRecords[i].date);
+        const windowEnd = new Date(windowStart);
+        windowEnd.setDate(windowEnd.getDate() + 6);
+        const windowEndStr = windowEnd.toISOString().split('T')[0];
+
+        const weekVolume = allRecords
+            .filter(r => r.date >= allRecords[i].date && r.date <= windowEndStr)
+            .reduce((s, r) => s + r.totalVolume, 0);
+
+        if (weekVolume > bestVolume) {
+            bestVolume = weekVolume;
+            bestStart = allRecords[i].date;
+            bestEnd = windowEndStr;
+        }
+    }
+
+    return bestVolume > 0 ? { startDate: bestStart, endDate: bestEnd, volume: bestVolume } : null;
+};
+
 export const calculateEnergyStats = (
     energyLog: EnergyEntry[],
     history: HistoryRecord[],

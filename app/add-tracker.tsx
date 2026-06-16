@@ -1,11 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTrackers } from '../src/context/TrackerContext';
 import { theme } from '../src/constants/theme';
+import { TrackerType } from '../src/types';
 
 const QUICK_EMOJIS = ['💧', '🏃', '📚', '💪', '🧘', '✍️', '🎯', '💡', '🌱', '🔥'];
+
+const TRACKER_TYPES: { type: TrackerType; label: string; desc: string }[] = [
+    { type: 'count', label: 'Count', desc: 'Tap to increment a number' },
+    { type: 'boolean', label: 'Yes/No', desc: 'Did I do it today?' },
+    { type: 'negative', label: 'Limit', desc: 'Stay under a daily max' },
+    { type: 'timer', label: 'Timer', desc: 'Track minutes spent' },
+];
 
 export default function AddTrackerScreen() {
     const router = useRouter();
@@ -13,6 +21,14 @@ export default function AddTrackerScreen() {
     const [name, setName] = useState('');
     const [goal, setGoal] = useState('');
     const [emoji, setEmoji] = useState('');
+    const [trackerType, setTrackerType] = useState<TrackerType>('count');
+    const [timerIncrement, setTimerIncrement] = useState('30');
+
+    const isBoolean = trackerType === 'boolean';
+    const isTimer = trackerType === 'timer';
+    const isNegative = trackerType === 'negative';
+
+    const goalLabel = isTimer ? 'Daily Goal (minutes)' : isNegative ? 'Daily Limit' : isBoolean ? undefined : 'Daily Goal';
 
     const handleSave = () => {
         if (!name.trim()) {
@@ -20,20 +36,38 @@ export default function AddTrackerScreen() {
             return;
         }
 
-        const goalNumber = parseInt(goal, 10);
-        if (isNaN(goalNumber) || goalNumber <= 0) {
-            Alert.alert('Validation Error', 'Please enter a valid daily goal (number greater than 0).');
+        const effectiveGoal = isBoolean ? 1 : parseInt(goal, 10);
+        if (!isBoolean && (isNaN(effectiveGoal) || effectiveGoal <= 0)) {
+            Alert.alert('Validation Error', 'Please enter a valid goal.');
             return;
         }
 
-        addTracker(name.trim(), goalNumber, emoji.trim() || undefined);
+        const increment = isTimer ? parseInt(timerIncrement, 10) || 30 : undefined;
+        addTracker(name.trim(), effectiveGoal, emoji.trim() || undefined, trackerType, increment);
         router.back();
     };
 
     return (
         <SafeAreaView style={styles.container}>
-            <View style={styles.content}>
+            <ScrollView contentContainerStyle={styles.content}>
                 <Text style={styles.title}>New Tracker</Text>
+
+                {/* Type picker */}
+                <View style={styles.formGroup}>
+                    <Text style={styles.label}>Tracker Type</Text>
+                    <View style={styles.typeGrid}>
+                        {TRACKER_TYPES.map(t => (
+                            <TouchableOpacity
+                                key={t.type}
+                                style={[styles.typeCard, trackerType === t.type && styles.typeCardSelected]}
+                                onPress={() => setTrackerType(t.type)}
+                            >
+                                <Text style={[styles.typeLabel, trackerType === t.type && styles.typeLabelSelected]}>{t.label}</Text>
+                                <Text style={styles.typeDesc}>{t.desc}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </View>
 
                 <View style={styles.formGroup}>
                     <Text style={styles.label}>Tracker Name</Text>
@@ -47,30 +81,46 @@ export default function AddTrackerScreen() {
                     />
                 </View>
 
-                <View style={styles.formGroup}>
-                    <Text style={styles.label}>Daily Goal</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="e.g. 8"
-                        placeholderTextColor={theme.colors.secondary}
-                        value={goal}
-                        onChangeText={setGoal}
-                        keyboardType="numeric"
-                    />
-                </View>
+                {!isBoolean && (
+                    <View style={styles.formGroup}>
+                        <Text style={styles.label}>{goalLabel}</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder={isTimer ? 'e.g. 60' : isNegative ? 'e.g. 5' : 'e.g. 8'}
+                            placeholderTextColor={theme.colors.secondary}
+                            value={goal}
+                            onChangeText={setGoal}
+                            keyboardType="numeric"
+                        />
+                    </View>
+                )}
+
+                {isTimer && (
+                    <View style={styles.formGroup}>
+                        <Text style={styles.label}>Minutes per tap</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="30"
+                            placeholderTextColor={theme.colors.secondary}
+                            value={timerIncrement}
+                            onChangeText={setTimerIncrement}
+                            keyboardType="numeric"
+                        />
+                    </View>
+                )}
 
                 <View style={styles.formGroup}>
                     <Text style={styles.label}>Emoji <Text style={styles.optional}>(optional)</Text></Text>
                     <View style={styles.emojiRow}>
                         <TextInput
                             style={[styles.input, styles.emojiInput]}
-                            placeholder="e.g. 💧"
+                            placeholder="💧"
                             placeholderTextColor={theme.colors.secondary}
                             value={emoji}
-                            onChangeText={text => setEmoji(text.slice(0, 2))}
+                            onChangeText={t => setEmoji(t.slice(0, 2))}
                         />
                         {emoji ? (
-                            <TouchableOpacity style={styles.clearEmoji} onPress={() => setEmoji('')}>
+                            <TouchableOpacity onPress={() => setEmoji('')} style={styles.clearEmoji}>
                                 <Text style={styles.clearEmojiText}>✕</Text>
                             </TouchableOpacity>
                         ) : null}
@@ -92,120 +142,40 @@ export default function AddTrackerScreen() {
                     <TouchableOpacity style={styles.cancelButton} onPress={() => router.back()}>
                         <Text style={styles.cancelButtonText}>Cancel</Text>
                     </TouchableOpacity>
-
                     <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
                         <Text style={styles.saveButtonText}>Save Tracker</Text>
                     </TouchableOpacity>
                 </View>
-            </View>
+            </ScrollView>
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: theme.colors.background,
-    },
-    content: {
-        flex: 1,
-        padding: theme.spacing.m,
-    },
-    title: {
-        fontSize: theme.fontSizes.xl,
-        fontWeight: 'bold',
-        color: theme.colors.primary,
-        marginBottom: theme.spacing.xl,
-        marginTop: theme.spacing.m,
-    },
-    formGroup: {
-        marginBottom: theme.spacing.l,
-    },
-    label: {
-        fontSize: theme.fontSizes.m,
-        color: theme.colors.secondary,
-        marginBottom: theme.spacing.s,
-    },
-    optional: {
-        fontSize: theme.fontSizes.s,
-        color: theme.colors.secondary,
-        opacity: 0.6,
-    },
-    input: {
-        backgroundColor: theme.colors.surface,
-        color: theme.colors.primary,
-        padding: theme.spacing.m,
-        borderRadius: 8,
-        fontSize: theme.fontSizes.m,
-        borderWidth: 1,
-        borderColor: '#333',
-    },
-    emojiRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: theme.spacing.s,
-    },
-    emojiInput: {
-        width: 80,
-        textAlign: 'center',
-        fontSize: 24,
-    },
-    clearEmoji: {
-        padding: theme.spacing.s,
-    },
-    clearEmojiText: {
-        color: theme.colors.secondary,
-        fontSize: 16,
-    },
-    quickEmojis: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: theme.spacing.s,
-        marginTop: theme.spacing.m,
-    },
-    emojiChip: {
-        backgroundColor: theme.colors.surface,
-        borderRadius: 8,
-        padding: theme.spacing.s,
-        borderWidth: 1,
-        borderColor: '#333',
-    },
-    emojiChipSelected: {
-        borderColor: theme.colors.accent,
-        backgroundColor: theme.colors.accent + '20',
-    },
-    emojiChipText: {
-        fontSize: 22,
-    },
-    buttonContainer: {
-        flexDirection: 'row',
-        marginTop: theme.spacing.l,
-        gap: theme.spacing.m,
-    },
-    saveButton: {
-        flex: 1,
-        backgroundColor: theme.colors.accent,
-        padding: theme.spacing.m,
-        borderRadius: 8,
-        alignItems: 'center',
-    },
-    saveButtonText: {
-        color: '#FFFFFF',
-        fontSize: theme.fontSizes.m,
-        fontWeight: 'bold',
-    },
-    cancelButton: {
-        flex: 1,
-        backgroundColor: 'transparent',
-        padding: theme.spacing.m,
-        borderRadius: 8,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: theme.colors.secondary,
-    },
-    cancelButtonText: {
-        color: theme.colors.secondary,
-        fontSize: theme.fontSizes.m,
-        fontWeight: '600',
-    },
+    container: { flex: 1, backgroundColor: theme.colors.background },
+    content: { padding: theme.spacing.m, paddingBottom: 60 },
+    title: { fontSize: theme.fontSizes.xl, fontWeight: 'bold', color: theme.colors.primary, marginBottom: theme.spacing.xl, marginTop: theme.spacing.m },
+    formGroup: { marginBottom: theme.spacing.l },
+    label: { fontSize: theme.fontSizes.m, color: theme.colors.secondary, marginBottom: theme.spacing.s },
+    optional: { fontSize: theme.fontSizes.s, opacity: 0.6 },
+    input: { backgroundColor: theme.colors.surface, color: theme.colors.primary, padding: theme.spacing.m, borderRadius: 8, fontSize: theme.fontSizes.m, borderWidth: 1, borderColor: '#333' },
+    typeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.s },
+    typeCard: { flex: 1, minWidth: '45%', backgroundColor: theme.colors.surface, borderRadius: 10, padding: theme.spacing.m, borderWidth: 1, borderColor: '#333' },
+    typeCardSelected: { borderColor: theme.colors.accent, backgroundColor: theme.colors.accent + '20' },
+    typeLabel: { fontSize: theme.fontSizes.m, fontWeight: '600', color: theme.colors.text, marginBottom: 2 },
+    typeLabelSelected: { color: theme.colors.accent },
+    typeDesc: { fontSize: 11, color: theme.colors.secondary },
+    emojiRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.s },
+    emojiInput: { width: 80, textAlign: 'center', fontSize: 24 },
+    clearEmoji: { padding: theme.spacing.s },
+    clearEmojiText: { color: theme.colors.secondary, fontSize: 16 },
+    quickEmojis: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.s, marginTop: theme.spacing.m },
+    emojiChip: { backgroundColor: theme.colors.surface, borderRadius: 8, padding: theme.spacing.s, borderWidth: 1, borderColor: '#333' },
+    emojiChipSelected: { borderColor: theme.colors.accent, backgroundColor: theme.colors.accent + '20' },
+    emojiChipText: { fontSize: 22 },
+    buttonContainer: { flexDirection: 'row', marginTop: theme.spacing.l, gap: theme.spacing.m },
+    saveButton: { flex: 1, backgroundColor: theme.colors.accent, padding: theme.spacing.m, borderRadius: 8, alignItems: 'center' },
+    saveButtonText: { color: '#FFFFFF', fontSize: theme.fontSizes.m, fontWeight: 'bold' },
+    cancelButton: { flex: 1, padding: theme.spacing.m, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: theme.colors.secondary },
+    cancelButtonText: { color: theme.colors.secondary, fontSize: theme.fontSizes.m, fontWeight: '600' },
 });

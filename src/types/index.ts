@@ -1,3 +1,5 @@
+export type TrackerType = 'count' | 'boolean' | 'negative' | 'timer';
+
 export interface Tracker {
     id: string;
     name: string;
@@ -7,7 +9,15 @@ export interface Tracker {
     isActive: boolean;
     emoji?: string;
     isArchived?: boolean;
+    trackerType?: TrackerType; // default 'count'
+    timerIncrement?: number;   // minutes per tap for timer type, default 30
 }
+
+export const isTrackerGoalMet = (tracker: Tracker): boolean => {
+    const type = tracker.trackerType ?? 'count';
+    if (type === 'negative') return tracker.count < tracker.dailyGoal;
+    return tracker.count >= tracker.dailyGoal;
+};
 
 export interface HistoryRecord {
     date: string; // ISO string

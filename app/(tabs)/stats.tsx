@@ -30,6 +30,11 @@ import {
     calculateMilestones,
     calculateCorrelationMatrix,
     calculateEnergyStats,
+    calculateMonthComparison,
+    calculateLongestGap,
+    calculateMonthlyTrend,
+    calculateTrackerLifecycle,
+    calculateBestWeek,
 } from '../../src/utils/statsLogic';
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
@@ -124,6 +129,26 @@ function MiniBarChart({ data, goal, accentColor = theme.colors.accent }: { data:
                     </View>
                 );
             })}
+        </View>
+    );
+}
+
+function MonthlyTrendChart({ data, accentColor }: { data: { label: string; volume: number; isCurrent: boolean }[]; accentColor: string }) {
+    const max = Math.max(...data.map(d => d.volume), 1);
+    return (
+        <View style={styles.monthlyChart}>
+            {data.map((d, i) => (
+                <View key={i} style={styles.monthlyBarWrapper}>
+                    <View style={styles.monthlyBarTrack}>
+                        <View style={[styles.monthlyBarFill, {
+                            height: `${Math.max((d.volume / max) * 100, d.volume > 0 ? 4 : 0)}%`,
+                            backgroundColor: d.isCurrent ? accentColor : theme.colors.secondary,
+                            opacity: d.isCurrent ? 1 : 0.6,
+                        }]} />
+                    </View>
+                    <Text style={[styles.monthlyBarLabel, d.isCurrent && { color: accentColor }]}>{d.label}</Text>
+                </View>
+            ))}
         </View>
     );
 }
@@ -282,6 +307,11 @@ export default function StatsScreen() {
         const milestones = calculateMilestones(trackers, history, currentStreak);
         const correlationMatrix = calculateCorrelationMatrix(trackers, history, 30);
         const energyStats = calculateEnergyStats(energyLog, history, trackers);
+        const monthComparison = calculateMonthComparison(trackers, history);
+        const longestGap = calculateLongestGap(trackers, history);
+        const monthlyTrend = calculateMonthlyTrend(trackers, history, 12);
+        const trackerLifecycle = calculateTrackerLifecycle(trackers, history);
+        const bestWeek = calculateBestWeek(trackers, history);
 
         return {
             todayVolume,
@@ -303,6 +333,11 @@ export default function StatsScreen() {
             milestones,
             correlationMatrix,
             energyStats,
+            monthComparison,
+            longestGap,
+            monthlyTrend,
+            trackerLifecycle,
+            bestWeek,
         };
     }, [trackers, history, currentStreak, preferences.heatmapWeeks, energyLog]);
 
@@ -455,6 +490,77 @@ export default function StatsScreen() {
                         <Text style={[styles.weekChange, { color: weekChangeColor }]}>{weekChangeText}</Text>
                     </View>
                 </View>
+
+                {/* ── Month Comparison ── */}
+                <View>
+                    <SectionTitle title="Month Comparison" />
+                    <View style={styles.surface}>
+                        <View style={styles.weekRow}>
+                            <View style={styles.weekCol}>
+                                <Text style={styles.weekLabel}>{stats.monthComparison.thisMonthLabel}</Text>
+                                <Text style={[styles.weekValue, { color: theme.colors.text }]}>{stats.monthComparison.thisMonth}</Text>
+                            </View>
+                            <View style={styles.weekDivider} />
+                            <View style={styles.weekCol}>
+                                <Text style={styles.weekLabel}>{stats.monthComparison.lastMonthLabel}</Text>
+                                <Text style={[styles.weekValue, { color: theme.colors.secondary }]}>{stats.monthComparison.lastMonth}</Text>
+                            </View>
+                        </View>
+                        {stats.monthComparison.change !== null && (
+                            <Text style={[styles.weekChange, { color: stats.monthComparison.change >= 0 ? theme.colors.success : theme.colors.danger }]}>
+                                {stats.monthComparison.change >= 0 ? `+${stats.monthComparison.change}%` : `${stats.monthComparison.change}%`} vs last month
+                            </Text>
+                        )}
+                    </View>
+                </View>
+
+                {/* ── Monthly Trend ── */}
+                <View>
+                    <SectionTitle title="12-Month Trend" />
+                    <View style={styles.surface}>
+                        <MonthlyTrendChart data={stats.monthlyTrend} accentColor={accentColor} />
+                    </View>
+                </View>
+
+                {/* ── Best Week + Longest Gap ── */}
+                <View style={styles.row}>
+                    {stats.bestWeek && (
+                        <View style={styles.card}>
+                            <Text style={styles.cardLabel}>Best Week</Text>
+                            <Text style={[styles.cardValue, { color: theme.colors.success }]}>{stats.bestWeek.volume}</Text>
+                            <Text style={styles.cardSubtext}>
+                                {format(new Date(stats.bestWeek.startDate + 'T12:00:00'), 'MMM d')}–{format(new Date(stats.bestWeek.endDate + 'T12:00:00'), 'MMM d')}
+                            </Text>
+                        </View>
+                    )}
+                    <View style={styles.card}>
+                        <Text style={styles.cardLabel}>Longest Gap</Text>
+                        <Text style={[styles.cardValue, { color: stats.longestGap > 7 ? theme.colors.danger : theme.colors.text }]}>{stats.longestGap}d</Text>
+                        <Text style={styles.cardSubtext}>Days without logging</Text>
+                    </View>
+                </View>
+
+                {/* ── Tracker Lifecycle ── */}
+                {stats.trackerLifecycle.length > 0 && (
+                    <View>
+                        <SectionTitle title="Tracker History" />
+                        <View style={styles.surface}>
+                            {stats.trackerLifecycle.map((t, i) => (
+                                <View key={t.name}>
+                                    {i > 0 && <View style={{ height: 1, backgroundColor: theme.colors.background, marginVertical: theme.spacing.s }} />}
+                                    <View style={styles.lifecycleRow}>
+                                        <Text style={styles.lifecycleName}>{t.emoji ? `${t.emoji} ` : ''}{t.name}</Text>
+                                        <View style={styles.lifecycleInfo}>
+                                            <Text style={styles.lifecycleDetail}>First: {t.firstDate ? format(new Date(t.firstDate + 'T12:00:00'), 'MMM d, yyyy') : '—'}</Text>
+                                            <Text style={styles.lifecycleDetail}>Last: {t.lastDate ? format(new Date(t.lastDate + 'T12:00:00'), 'MMM d, yyyy') : '—'}</Text>
+                                            <Text style={[styles.lifecycleDetail, { color: accentColor }]}>{t.totalDays} day{t.totalDays !== 1 ? 's' : ''} logged</Text>
+                                        </View>
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+                )}
 
                 {/* ── Activity Heatmap ── */}
                 <View>
@@ -1142,6 +1248,59 @@ const styles = StyleSheet.create({
         fontSize: theme.fontSizes.m,
         color: theme.colors.secondary,
         fontStyle: 'italic',
+    },
+
+    // Monthly trend chart
+    monthlyChart: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        height: 80,
+        gap: 3,
+    },
+    monthlyBarWrapper: {
+        flex: 1,
+        alignItems: 'center',
+        height: '100%',
+    },
+    monthlyBarTrack: {
+        flex: 1,
+        width: '100%',
+        backgroundColor: theme.colors.background,
+        borderRadius: 3,
+        overflow: 'hidden',
+        justifyContent: 'flex-end',
+    },
+    monthlyBarFill: {
+        width: '100%',
+        borderRadius: 3,
+    },
+    monthlyBarLabel: {
+        fontSize: 8,
+        color: theme.colors.secondary,
+        marginTop: 3,
+        textAlign: 'center',
+    },
+
+    // Tracker lifecycle
+    lifecycleRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        paddingVertical: 4,
+    },
+    lifecycleName: {
+        fontSize: theme.fontSizes.m,
+        color: theme.colors.text,
+        fontWeight: '600',
+        flex: 1,
+    },
+    lifecycleInfo: {
+        alignItems: 'flex-end',
+        gap: 2,
+    },
+    lifecycleDetail: {
+        fontSize: 11,
+        color: theme.colors.secondary,
     },
 
     // Energy stats

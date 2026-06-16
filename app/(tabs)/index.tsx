@@ -15,7 +15,7 @@ import { detectNewAchievements, ACHIEVEMENTS } from '../../src/utils/achievement
 import { calculateTodayVolume, calculateConsistencyScore, calculateGoalCompletionRate } from '../../src/utils/statsLogic';
 import { isWeekendDay } from '../../src/utils/dateLogic';
 import { useAccentColor } from '../../src/hooks/useAccentColor';
-import { Achievement, EnergyLevel, ENERGY_LABELS } from '../../src/types';
+import { Achievement, EnergyLevel, ENERGY_LABELS, isTrackerGoalMet } from '../../src/types';
 
 export default function HomeScreen() {
     const router = useRouter();
@@ -52,7 +52,11 @@ export default function HomeScreen() {
     const allGoalsMet = useMemo(() => {
         return sortedActiveTrackers.length > 0 && sortedActiveTrackers
             .filter(t => t.isActive)
-            .every(t => t.count >= getEffectiveGoal(t.dailyGoal));
+            .every(t => {
+                const effectiveGoal = getEffectiveGoal(t.dailyGoal);
+                if (t.trackerType === 'negative') return t.count < effectiveGoal;
+                return t.count >= effectiveGoal;
+            });
     }, [sortedActiveTrackers, isWeekend, preferences.weekendGoalEnabled, preferences.weekendGoalMultiplier]);
 
     // Detect new achievements
@@ -134,14 +138,17 @@ export default function HomeScreen() {
                                 count={item.count}
                                 goal={effectiveGoal}
                                 emoji={item.emoji}
+                                trackerType={item.trackerType}
+                                timerIncrement={item.timerIncrement}
                                 onIncrement={() => {
                                     incrementTracker(item.id);
                                     const updated = sortedActiveTrackers.map(t =>
                                         t.id === item.id ? { ...t, count: t.count + 1 } : t
                                     );
-                                    const allMet = updated.filter(t => t.isActive).every(t =>
-                                        t.count >= getEffectiveGoal(t.dailyGoal)
-                                    );
+                                    const allMet = updated.filter(t => t.isActive).every(t => {
+                                        const eg = getEffectiveGoal(t.dailyGoal);
+                                        return t.trackerType === 'negative' ? t.count < eg : t.count >= eg;
+                                    });
                                     if (allMet) setShowCelebration(true);
                                 }}
                                 onDecrement={() => decrementTracker(item.id)}
