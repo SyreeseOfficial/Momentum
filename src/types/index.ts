@@ -57,19 +57,26 @@ export interface AchievementsState {
     unlocked: AchievementId[];
 }
 
+export type HapticIntensity = 'none' | 'light' | 'medium' | 'strong';
+export type ColorScheme = 'dark' | 'light' | 'system';
+
 export interface AppPreferences {
-    weekStartDay: 'sunday' | 'monday';
+    weekStartDay: number; // 0=Sun 1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat
     sortPreference: 'custom' | 'alphabetical' | 'goalProximity' | 'frequency';
     dayResetHour: number;
     heatmapWeeks: 4 | 8 | 12 | 24;
     weekendGoalEnabled: boolean;
     weekendGoalMultiplier: number;
-    // Phase 2
     accentColor: string;
     showEmojiOnCard: boolean;
     showGoalOnCard: boolean;
     cardStyle: 'detailed' | 'minimal';
     gridColumns: 1 | 2 | 3;
+    colorScheme: ColorScheme;
+    hapticIntensity: HapticIntensity;
+    soundEnabled: boolean;
+    reduceAnimations: boolean;
+    appLockEnabled: boolean;
 }
 
 export type EnergyLevel = 1 | 2 | 3 | 4 | 5;
@@ -90,7 +97,7 @@ export const ENERGY_LABELS: Record<EnergyLevel, { emoji: string; label: string }
 };
 
 export const DEFAULT_PREFERENCES: AppPreferences = {
-    weekStartDay: 'sunday',
+    weekStartDay: 0,
     sortPreference: 'custom',
     dayResetHour: 0,
     heatmapWeeks: 12,
@@ -101,4 +108,9 @@ export const DEFAULT_PREFERENCES: AppPreferences = {
     showGoalOnCard: true,
     cardStyle: 'detailed',
     gridColumns: 1,
+    colorScheme: 'dark',
+    hapticIntensity: 'light',
+    soundEnabled: false,
+    reduceAnimations: false,
+    appLockEnabled: false,
 };

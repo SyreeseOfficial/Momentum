@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import * as Haptics from 'expo-haptics';
-import { theme } from '../constants/theme';
 import { useTrackers } from '../context/TrackerContext';
-import { useAccentColor } from '../hooks/useAccentColor';
-import { TrackerType } from '../types';
+import { useAppTheme } from '../context/ThemeContext';
+import { triggerHaptic } from '../utils/haptics';
+import { playSound } from '../utils/sounds';
+import { TrackerType, ThemeColors } from '../types';
 
 interface TrackerCardProps {
     name: string;
@@ -32,8 +32,9 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
     onIncrement, onDecrement, onEdit, onArchive, onDelete,
 }) => {
     const { preferences } = useTrackers();
-    const accentColor = useAccentColor();
-    const { showEmojiOnCard, showGoalOnCard, cardStyle, gridColumns } = preferences;
+    const theme = useAppTheme();
+    const { showEmojiOnCard, showGoalOnCard, cardStyle, gridColumns, hapticIntensity, soundEnabled } = preferences;
+    const styles = useMemo(() => createStyles(theme.colors), [theme.colors]);
     const isMinimal = cardStyle === 'minimal';
     const isCompact = gridColumns === 2;
     const isMicro = gridColumns === 3;
@@ -45,23 +46,22 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
     const isGoalMet = isNegative ? count < goal : count >= goal;
 
     const handleIncrement = () => {
-        const willMeetGoal = isNegative
-            ? false
-            : isBoolean
-                ? count === 0
-                : isTimer
-                    ? count + timerIncrement >= goal
-                    : count + 1 >= goal;
+        const willMeetGoal = isNegative ? false
+            : isBoolean ? count === 0
+            : isTimer ? count + timerIncrement >= goal
+            : count + 1 >= goal;
         if (willMeetGoal) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            triggerHaptic('success', hapticIntensity);
+            playSound('goal', soundEnabled);
         } else {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            triggerHaptic('tap', hapticIntensity);
+            playSound('tap', soundEnabled);
         }
         onIncrement();
     };
 
     const handleDecrement = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        triggerHaptic('tap', hapticIntensity);
         onDecrement();
     };
 
@@ -83,10 +83,10 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
         barColor = isGoalMet ? theme.colors.success : theme.colors.danger;
     } else if (isBoolean) {
         percentage = count >= 1 ? 100 : 0;
-        barColor = isGoalMet ? theme.colors.success : accentColor;
+        barColor = isGoalMet ? theme.colors.success : theme.colors.accent;
     } else {
         percentage = Math.min((count / goal) * 100, 100);
-        barColor = isGoalMet ? theme.colors.success : accentColor;
+        barColor = isGoalMet ? theme.colors.success : theme.colors.accent;
     }
 
     // Count display
@@ -164,59 +164,29 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
     );
 };
 
-const styles = StyleSheet.create({
-    card: {
-        backgroundColor: theme.colors.surface,
-        borderRadius: 16,
-        padding: theme.spacing.m,
-        marginVertical: theme.spacing.s,
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-        position: 'relative',
-    },
-    cardMinimal: { paddingVertical: 10 },
-    cardCompact: { paddingVertical: theme.spacing.s, paddingHorizontal: theme.spacing.s },
-    cardMicro: { paddingVertical: 6, paddingHorizontal: 6 },
-    emoji: { fontSize: 28, marginBottom: 2 },
-    emojiSmall: { fontSize: 20 },
-    emojiMicro: { fontSize: 16 },
-    name: {
-        color: theme.colors.secondary,
-        fontSize: theme.fontSizes.s,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-        marginBottom: 4,
-        textAlign: 'center',
-    },
-    nameSmall: { fontSize: 11 },
-    nameMicro: { fontSize: 9 },
-    count: {
-        color: theme.colors.primary,
-        fontSize: 48,
-        fontWeight: 'bold',
-        marginVertical: 4,
-        textAlign: 'center',
-    },
-    countMinimal: { fontSize: 32, marginVertical: 2 },
-    countCompact: { fontSize: 36, marginVertical: 2 },
-    countMicro: { fontSize: 26, marginVertical: 1 },
-    countTimer: { fontSize: 30, marginVertical: 4 },
-    countBoolean: { fontSize: 40 },
-    goal: {
-        color: theme.colors.secondary,
-        fontSize: theme.fontSizes.s,
-        marginTop: 4,
-        marginBottom: 8,
-    },
-    progressBarContainer: {
-        position: 'absolute',
-        bottom: 0, left: 0, right: 0,
-        height: 4,
-        backgroundColor: '#333333',
-    },
-    progressBarFill: { height: '100%' },
-    decrementControl: { position: 'absolute', left: 0, top: 0, bottom: 0, width: '30%', zIndex: 1 },
-    incrementControl: { position: 'absolute', right: 0, top: 0, bottom: 0, width: '70%', zIndex: 1 },
-    fullTap: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 1 },
-});
+function createStyles(colors: ThemeColors) {
+    return StyleSheet.create({
+        card: { backgroundColor: colors.surface, borderRadius: 16, padding: 16, marginVertical: 8, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' },
+        cardMinimal: { paddingVertical: 10 },
+        cardCompact: { paddingVertical: 8, paddingHorizontal: 8 },
+        cardMicro: { paddingVertical: 6, paddingHorizontal: 6 },
+        emoji: { fontSize: 28, marginBottom: 2 },
+        emojiSmall: { fontSize: 20 },
+        emojiMicro: { fontSize: 16 },
+        name: { color: colors.secondary, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, textAlign: 'center' },
+        nameSmall: { fontSize: 11 },
+        nameMicro: { fontSize: 9 },
+        count: { color: colors.primary, fontSize: 48, fontWeight: 'bold', marginVertical: 4, textAlign: 'center' },
+        countMinimal: { fontSize: 32, marginVertical: 2 },
+        countCompact: { fontSize: 36, marginVertical: 2 },
+        countMicro: { fontSize: 26, marginVertical: 1 },
+        countTimer: { fontSize: 30, marginVertical: 4 },
+        countBoolean: { fontSize: 40 },
+        goal: { color: colors.secondary, fontSize: 12, marginTop: 4, marginBottom: 8 },
+        progressBarContainer: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 4, backgroundColor: colors.background === '#121212' ? '#333' : '#ddd' },
+        progressBarFill: { height: '100%' },
+        decrementControl: { position: 'absolute', left: 0, top: 0, bottom: 0, width: '30%', zIndex: 1 },
+        incrementControl: { position: 'absolute', right: 0, top: 0, bottom: 0, width: '70%', zIndex: 1 },
+        fullTap: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 1 },
+    });
+}

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTrackers } from '../src/context/TrackerContext';
-import { theme } from '../src/constants/theme';
+import { useAppTheme } from '../src/context/ThemeContext';
+import { Theme } from '../src/constants/theme';
 import { TrackerType } from '../src/types';
 
 const QUICK_EMOJIS = ['💧', '🏃', '📚', '💪', '🧘', '✍️', '🎯', '💡', '🌱', '🔥'];
@@ -18,6 +19,8 @@ const TRACKER_TYPES: { type: TrackerType; label: string; desc: string }[] = [
 export default function AddTrackerScreen() {
     const router = useRouter();
     const { addTracker } = useTrackers();
+    const theme = useAppTheme();
+    const styles = useMemo(() => createStyles(theme), [theme]);
     const [name, setName] = useState('');
     const [goal, setGoal] = useState('');
     const [emoji, setEmoji] = useState('');
@@ -151,7 +154,7 @@ export default function AddTrackerScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: Theme) { return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.colors.background },
     content: { padding: theme.spacing.m, paddingBottom: 60 },
     title: { fontSize: theme.fontSizes.xl, fontWeight: 'bold', color: theme.colors.primary, marginBottom: theme.spacing.xl, marginTop: theme.spacing.m },
@@ -178,4 +181,4 @@ const styles = StyleSheet.create({
     saveButtonText: { color: '#FFFFFF', fontSize: theme.fontSizes.m, fontWeight: 'bold' },
     cancelButton: { flex: 1, padding: theme.spacing.m, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: theme.colors.secondary },
     cancelButtonText: { color: theme.colors.secondary, fontSize: theme.fontSizes.m, fontWeight: '600' },
-});
+}); }

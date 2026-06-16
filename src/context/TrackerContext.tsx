@@ -71,7 +71,11 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
                 const loadedNotificationEnabled = await loadData<boolean>('notificationEnabled') || false;
                 const loadedNotificationTime = await loadData<string>('notificationTime');
                 const loadedAchievements = await loadData<AchievementId[]>('achievements') || [];
-                const loadedPreferences = await loadData<AppPreferences>('preferences') || DEFAULT_PREFERENCES;
+                const rawPrefs = await loadData<any>('preferences');
+                const loadedPreferences: AppPreferences = { ...DEFAULT_PREFERENCES, ...rawPrefs };
+                // Migrate weekStartDay from old string format
+                if (loadedPreferences.weekStartDay === 'sunday' as any) loadedPreferences.weekStartDay = 0;
+                if (loadedPreferences.weekStartDay === 'monday' as any) loadedPreferences.weekStartDay = 1;
                 const loadedEnergyLog = await loadData<EnergyLog>('energyLog') || [];
 
                 setNotificationEnabled(loadedNotificationEnabled);

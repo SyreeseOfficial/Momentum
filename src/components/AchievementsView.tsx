@@ -1,8 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
-import { theme } from '../constants/theme';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useAppTheme } from '../context/ThemeContext';
 import { ACHIEVEMENTS } from '../utils/achievements';
-import { AchievementId } from '../types';
+import { AchievementId, ThemeColors } from '../types';
 
 interface AchievementsViewProps {
     unlockedAchievements: AchievementId[];
@@ -10,6 +10,8 @@ interface AchievementsViewProps {
 }
 
 export const AchievementsView = ({ unlockedAchievements, onClose }: AchievementsViewProps) => {
+    const theme = useAppTheme();
+    const styles = useMemo(() => createStyles(theme.colors), [theme.colors]);
     const achievements = Object.values(ACHIEVEMENTS);
     const unlockedSet = new Set(unlockedAchievements);
     const unlockedCount = unlockedAchievements.length;
@@ -56,86 +58,22 @@ export const AchievementsView = ({ unlockedAchievements, onClose }: Achievements
     );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        padding: theme.spacing.m,
-        paddingBottom: 100,
-    },
-    header: {
-        marginBottom: theme.spacing.l,
-    },
-    headerTitle: {
-        fontSize: theme.fontSizes.xl,
-        fontWeight: 'bold',
-        color: theme.colors.text,
-        marginBottom: 8,
-    },
-    progress: {
-        fontSize: theme.fontSizes.m,
-        color: theme.colors.secondary,
-    },
-    progressBar: {
-        height: 6,
-        backgroundColor: theme.colors.surface,
-        borderRadius: 3,
-        overflow: 'hidden',
-        marginBottom: theme.spacing.l,
-    },
-    progressFill: {
-        height: '100%',
-        backgroundColor: theme.colors.accent,
-        borderRadius: 3,
-    },
-    grid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: theme.spacing.s,
-    },
-    achievementCard: {
-        flex: 1,
-        minWidth: '30%',
-        backgroundColor: theme.colors.surface,
-        borderRadius: 12,
-        padding: theme.spacing.m,
-        alignItems: 'center',
-        minHeight: 140,
-        position: 'relative',
-    },
-    iconContainer: {
-        width: 56,
-        height: 56,
-        borderRadius: 12,
-        backgroundColor: theme.colors.accent + '20',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: theme.spacing.s,
-    },
-    iconContainerLocked: {
-        backgroundColor: theme.colors.background,
-    },
-    icon: {
-        fontSize: 28,
-    },
-    achievementName: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: theme.colors.text,
-        textAlign: 'center',
-        marginBottom: 4,
-    },
-    achievementDesc: {
-        fontSize: 10,
-        color: theme.colors.secondary,
-        textAlign: 'center',
-    },
-    lockedText: {
-        opacity: 0.5,
-    },
-    unlockedBadge: {
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        fontSize: 20,
-        color: theme.colors.success,
-    },
-});
+function createStyles(colors: ThemeColors) {
+    return StyleSheet.create({
+        container: { padding: 16, paddingBottom: 100 },
+        header: { marginBottom: 24 },
+        headerTitle: { fontSize: 28, fontWeight: 'bold', color: colors.text, marginBottom: 8 },
+        progress: { fontSize: 16, color: colors.secondary },
+        progressBar: { height: 6, backgroundColor: colors.surface, borderRadius: 3, overflow: 'hidden', marginBottom: 24 },
+        progressFill: { height: '100%', backgroundColor: colors.accent, borderRadius: 3 },
+        grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+        achievementCard: { flex: 1, minWidth: '30%', backgroundColor: colors.surface, borderRadius: 12, padding: 16, alignItems: 'center', minHeight: 140, position: 'relative' },
+        iconContainer: { width: 56, height: 56, borderRadius: 12, backgroundColor: colors.accent + '20', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+        iconContainerLocked: { backgroundColor: colors.background },
+        icon: { fontSize: 28 },
+        achievementName: { fontSize: 12, fontWeight: '600', color: colors.text, textAlign: 'center', marginBottom: 4 },
+        achievementDesc: { fontSize: 10, color: colors.secondary, textAlign: 'center' },
+        lockedText: { opacity: 0.5 },
+        unlockedBadge: { position: 'absolute', top: 8, right: 8, fontSize: 20, color: colors.success },
+    });
+}

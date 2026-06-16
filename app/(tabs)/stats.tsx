@@ -7,8 +7,8 @@ import { format, parseISO } from 'date-fns';
 import { useTrackers } from '../../src/context/TrackerContext';
 import { ENERGY_LABELS, EnergyLevel } from '../../src/types';
 import { useStreaks } from '../../src/hooks/useStreaks';
-import { useAccentColor } from '../../src/hooks/useAccentColor';
-import { theme } from '../../src/constants/theme';
+import { useAppTheme } from '../../src/context/ThemeContext';
+import { Theme } from '../../src/constants/theme';
 import {
     calculateTodayVolume,
     calculate7DayVolume,
@@ -251,8 +251,8 @@ function TimelineView({ trackerName, trackers, history, accentColor }: {
     );
 }
 
-function DayOfWeekChart({ patterns, weekStartDay }: { patterns: { name: string; avg: number; normalized: number }[]; weekStartDay: 'sunday' | 'monday' }) {
-    const ordered = weekStartDay === 'monday' ? [...patterns.slice(1), patterns[0]] : patterns;
+function DayOfWeekChart({ patterns, weekStartDay }: { patterns: { name: string; avg: number; normalized: number }[]; weekStartDay: number }) {
+    const ordered = weekStartDay === 0 ? patterns : [...patterns.slice(weekStartDay), ...patterns.slice(0, weekStartDay)];
     const maxDay = ordered.reduce((best, d) => d.avg > best.avg ? d : best, ordered[0]);
     return (
         <View style={styles.dowChart}>
@@ -283,7 +283,9 @@ export default function StatsScreen() {
     const insets = useSafeAreaInsets();
     const { trackers, history, preferences, updatePreference, energyLog } = useTrackers();
     const { currentStreak, bestStreak } = useStreaks();
-    const accentColor = useAccentColor();
+    const theme = useAppTheme();
+    const styles = useMemo(() => createStyles(theme), [theme]);
+    const accentColor = theme.colors.accent;
     const [timelineTracker, setTimelineTracker] = useState<string | null>(null);
     const [showShareCard, setShowShareCard] = useState(false);
 
@@ -590,7 +592,7 @@ export default function StatsScreen() {
                     <SectionTitle title="Day of Week Patterns" />
                     <View style={styles.surface}>
                         <Text style={styles.dowSubtext}>Average daily volume by weekday</Text>
-                        <DayOfWeekChart patterns={stats.dowPatterns} weekStartDay={preferences.weekStartDay} />
+                        <DayOfWeekChart patterns={stats.dowPatterns} weekStartDay={preferences.weekStartDay ?? 0} />
                     </View>
                 </View>
 
@@ -884,7 +886,7 @@ function getTodayStringLocal() {
     return now.toISOString().split('T')[0];
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: Theme) { return StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: theme.colors.background,
@@ -1612,4 +1614,4 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
         letterSpacing: 1,
     },
-});
+}); }

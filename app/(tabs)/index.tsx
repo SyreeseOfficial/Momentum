@@ -3,7 +3,6 @@ import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Alert } from
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
-import { theme } from '../../src/constants/theme';
 import { useTrackers } from '../../src/context/TrackerContext';
 import { useStreaks } from '../../src/hooks/useStreaks';
 import { TrackerCard } from '../../src/components/TrackerCard';
@@ -14,13 +13,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { detectNewAchievements, ACHIEVEMENTS } from '../../src/utils/achievements';
 import { calculateTodayVolume, calculateConsistencyScore, calculateGoalCompletionRate } from '../../src/utils/statsLogic';
 import { isWeekendDay } from '../../src/utils/dateLogic';
-import { useAccentColor } from '../../src/hooks/useAccentColor';
+import { useAppTheme } from '../../src/context/ThemeContext';
+import { Theme } from '../../src/constants/theme';
 import { Achievement, EnergyLevel, ENERGY_LABELS, isTrackerGoalMet } from '../../src/types';
+import { playSound } from '../../src/utils/sounds';
 
 export default function HomeScreen() {
     const router = useRouter();
     const { trackers, history, incrementTracker, decrementTracker, unlockedAchievements, unlockAchievement, archiveTracker, deleteTracker, preferences, logEnergy, todayEnergy } = useTrackers();
-    const accentColor = useAccentColor();
+    const theme = useAppTheme();
+    const styles = useMemo(() => createStyles(theme), [theme]);
+    const accentColor = theme.colors.accent;
     const isWeekend = isWeekendDay();
     const { gridColumns } = preferences;
 
@@ -149,7 +152,7 @@ export default function HomeScreen() {
                                         const eg = getEffectiveGoal(t.dailyGoal);
                                         return t.trackerType === 'negative' ? t.count < eg : t.count >= eg;
                                     });
-                                    if (allMet) setShowCelebration(true);
+                                    if (allMet) { setShowCelebration(true); playSound('goal', preferences.soundEnabled); }
                                 }}
                                 onDecrement={() => decrementTracker(item.id)}
                                 onEdit={() => router.push({ pathname: '/edit-tracker', params: { id: item.id } })}
@@ -193,7 +196,7 @@ export default function HomeScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: Theme) { return StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: theme.colors.background,
@@ -312,4 +315,4 @@ const styles = StyleSheet.create({
     energyEmoji: {
         fontSize: 20,
     },
-});
+}); }

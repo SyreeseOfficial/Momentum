@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,13 +7,16 @@ import { format, parseISO, isValid } from 'date-fns';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { useTrackers } from '../src/context/TrackerContext';
-import { theme } from '../src/constants/theme';
+import { useAppTheme } from '../src/context/ThemeContext';
+import { Theme } from '../src/constants/theme';
 import { HistoryRecord } from '../src/types';
 
 export default function EditHistoryScreen() {
     const router = useRouter();
     const { date: dateParam } = useLocalSearchParams<{ date: string }>();
     const { history, trackers, saveHistoryRecord, deleteHistoryRecord } = useTrackers();
+    const theme = useAppTheme();
+    const styles = useMemo(() => createStyles(theme), [theme]);
 
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
@@ -166,7 +169,7 @@ export default function EditHistoryScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: Theme) { return StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: theme.colors.background,
@@ -273,4 +276,4 @@ const styles = StyleSheet.create({
         fontSize: theme.fontSizes.m,
         fontWeight: '600',
     },
-});
+}); }

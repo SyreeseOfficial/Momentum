@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Animated, Easing } from 'react-native';
-import { theme } from '../constants/theme';
+import { useAppTheme } from '../context/ThemeContext';
+import { useTrackers } from '../context/TrackerContext';
 
 interface ConfettiPiece {
     id: string;
@@ -10,16 +11,12 @@ interface ConfettiPiece {
     color: string;
 }
 
-const CONFETTI_COLORS = [
-    theme.colors.accent,
-    theme.colors.success,
-    theme.colors.primary,
-    '#FF6B6B',
-    '#FFD93D',
-];
+const STATIC_CONFETTI_COLORS = ['#6366F1', '#10B981', '#F2F2F2', '#FF6B6B', '#FFD93D'];
 
 export const Confetti = ({ duration = 2500 }: { duration?: number }) => {
+    const { preferences } = useTrackers();
     const [pieces, setPieces] = useState<ConfettiPiece[]>([]);
+    if (preferences.reduceAnimations) return null;
 
     useEffect(() => {
         const newPieces: ConfettiPiece[] = Array.from({ length: 30 }, (_, i) => ({
@@ -27,7 +24,7 @@ export const Confetti = ({ duration = 2500 }: { duration?: number }) => {
             left: Math.random() * 100,
             delay: Math.random() * 100,
             duration: 1000 + Math.random() * 500,
-            color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+            color: STATIC_CONFETTI_COLORS[Math.floor(Math.random() * STATIC_CONFETTI_COLORS.length)],
         }));
         setPieces(newPieces);
 

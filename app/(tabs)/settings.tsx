@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView,
     Switch, Platform, Linking
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTrackers } from '../../src/context/TrackerContext';
-import { theme } from '../../src/constants/theme';
+import { useAppTheme } from '../../src/context/ThemeContext';
+import { Theme } from '../../src/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -96,6 +97,8 @@ function SegmentedControl<T extends string>({
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function SettingsScreen() {
+    const theme = useAppTheme();
+    const styles = useMemo(() => createStyles(theme), [theme]);
     const {
         trackers,
         history,
@@ -317,6 +320,84 @@ export default function SettingsScreen() {
                     )}
                 </View>
 
+                {/* ── Look & Feel ── */}
+                <View style={styles.section}>
+                    <SectionHeader title="Look & Feel" />
+
+                    {/* Color scheme */}
+                    <View style={[styles.card, { marginBottom: theme.spacing.m }]}>
+                        <SettingRow label="App Theme" sub={undefined} right={null} />
+                        <SegmentedControl
+                            options={['dark', 'light', 'system'] as const}
+                            value={preferences.colorScheme ?? 'dark'}
+                            onChange={v => updatePreference('colorScheme', v)}
+                            labels={{ dark: '🌙 Dark', light: '☀️ Light', system: '⚙️ System' }}
+                        />
+                    </View>
+
+                    {/* Haptic intensity */}
+                    <View style={[styles.card, { marginBottom: theme.spacing.m }]}>
+                        <SettingRow label="Haptic Feedback" sub={undefined} right={null} />
+                        <SegmentedControl
+                            options={['none', 'light', 'medium', 'strong'] as const}
+                            value={preferences.hapticIntensity ?? 'light'}
+                            onChange={v => updatePreference('hapticIntensity', v)}
+                            labels={{ none: 'Off', light: 'Light', medium: 'Medium', strong: 'Strong' }}
+                        />
+                    </View>
+
+                    {/* Sound effects */}
+                    <View style={[styles.card, { marginBottom: theme.spacing.m }]}>
+                        <SettingRow
+                            label="Sound Effects"
+                            sub="Plays tones on tap, goal, and achievement"
+                            right={
+                                <Switch
+                                    trackColor={{ false: theme.colors.surface, true: theme.colors.accent }}
+                                    thumbColor={theme.colors.text}
+                                    ios_backgroundColor={theme.colors.surface}
+                                    onValueChange={v => updatePreference('soundEnabled', v)}
+                                    value={preferences.soundEnabled ?? false}
+                                />
+                            }
+                        />
+                    </View>
+
+                    {/* Reduce animations */}
+                    <View style={[styles.card, { marginBottom: theme.spacing.m }]}>
+                        <SettingRow
+                            label="Reduce Animations"
+                            sub="Disables confetti and card animations"
+                            right={
+                                <Switch
+                                    trackColor={{ false: theme.colors.surface, true: theme.colors.accent }}
+                                    thumbColor={theme.colors.text}
+                                    ios_backgroundColor={theme.colors.surface}
+                                    onValueChange={v => updatePreference('reduceAnimations', v)}
+                                    value={preferences.reduceAnimations ?? false}
+                                />
+                            }
+                        />
+                    </View>
+
+                    {/* App Lock */}
+                    <View style={styles.card}>
+                        <SettingRow
+                            label="App Lock"
+                            sub="Require Face ID / biometrics to open app"
+                            right={
+                                <Switch
+                                    trackColor={{ false: theme.colors.surface, true: theme.colors.accent }}
+                                    thumbColor={theme.colors.text}
+                                    ios_backgroundColor={theme.colors.surface}
+                                    onValueChange={v => updatePreference('appLockEnabled', v)}
+                                    value={preferences.appLockEnabled ?? false}
+                                />
+                            }
+                        />
+                    </View>
+                </View>
+
                 {/* ── Display ── */}
                 <View style={styles.section}>
                     <SectionHeader title="Display" />
@@ -401,14 +482,14 @@ export default function SettingsScreen() {
                     <View style={styles.card}>
                         <SettingRow
                             label="Week Starts On"
-                            sub={preferences.weekStartDay === 'sunday' ? 'Sunday' : 'Monday'}
+                            sub={['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][preferences.weekStartDay ?? 0]}
                             right={null}
                         />
                         <SegmentedControl
-                            options={['sunday', 'monday'] as const}
-                            value={preferences.weekStartDay}
-                            onChange={v => updatePreference('weekStartDay', v)}
-                            labels={{ sunday: 'Sunday', monday: 'Monday' }}
+                            options={[0, 1, 2, 3, 4, 5, 6] as any}
+                            value={(preferences.weekStartDay ?? 0) as any}
+                            onChange={v => updatePreference('weekStartDay', Number(v))}
+                            labels={{ '0': 'Sun', '1': 'Mon', '2': 'Tue', '3': 'Wed', '4': 'Thu', '5': 'Fri', '6': 'Sat' } as any}
                         />
                     </View>
                 </View>
@@ -613,7 +694,7 @@ export default function SettingsScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: Theme) { return StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: theme.colors.background,
@@ -901,4 +982,4 @@ const styles = StyleSheet.create({
         marginBottom: 4,
         lineHeight: 18,
     },
-});
+}); }

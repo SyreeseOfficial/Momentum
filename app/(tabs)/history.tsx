@@ -1,13 +1,13 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTrackers } from '../../src/context/TrackerContext';
-import { theme } from '../../src/constants/theme';
+import { useAppTheme } from '../../src/context/ThemeContext';
+import { Theme } from '../../src/constants/theme';
 import { format, parseISO } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
 import { HistoryRecord } from '../../src/types';
-import { useAccentColor } from '../../src/hooks/useAccentColor';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -165,7 +165,9 @@ function CalendarView({ history, trackers, accentColor }: {
 export default function HistoryScreen() {
     const { history, trackers } = useTrackers();
     const router = useRouter();
-    const accentColor = useAccentColor();
+    const theme = useAppTheme();
+    const accentColor = theme.colors.accent;
+    const styles = useMemo(() => createStyles(theme), [theme]);
     const [view, setView] = useState<'list' | 'calendar'>('list');
     const [search, setSearch] = useState('');
     const [filterPerfect, setFilterPerfect] = useState(false);
@@ -267,7 +269,7 @@ export default function HistoryScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: Theme) { return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.colors.background },
     topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: theme.spacing.m, paddingVertical: theme.spacing.m, borderBottomWidth: 1, borderBottomColor: theme.colors.surface },
     screenTitle: { fontSize: theme.fontSizes.xl, fontWeight: 'bold', color: theme.colors.text },
@@ -305,4 +307,4 @@ const styles = StyleSheet.create({
     emptyContainer: { alignItems: 'center', justifyContent: 'center', marginTop: theme.spacing.xl * 2 },
     emptyText: { fontSize: theme.fontSizes.l, fontWeight: 'bold', color: theme.colors.secondary, marginBottom: theme.spacing.s },
     emptySubtext: { fontSize: theme.fontSizes.m, color: theme.colors.secondary, textAlign: 'center', opacity: 0.7 },
-});
+}); }
