@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { theme } from '../constants/theme';
 
@@ -7,17 +7,22 @@ interface TrackerCardProps {
     name: string;
     count: number;
     goal: number;
+    emoji?: string;
     onIncrement: () => void;
     onDecrement: () => void;
+    onArchive: () => void;
+    onDelete: () => void;
 }
 
 export const TrackerCard: React.FC<TrackerCardProps> = ({
     name,
     count,
     goal,
-    // onIncrement and onDecrement will be used when we add buttons
+    emoji,
     onIncrement,
-    onDecrement
+    onDecrement,
+    onArchive,
+    onDelete,
 }) => {
     const handleIncrement = () => {
         const newCount = count + 1;
@@ -33,39 +38,43 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onDecrement();
     };
-    // Calculate percentage (clamped between 0 and 100)
+
+    const handleLongPress = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        Alert.alert(name, undefined, [
+            { text: 'Archive', onPress: onArchive },
+            { text: 'Delete', style: 'destructive', onPress: onDelete },
+            { text: 'Cancel', style: 'cancel' },
+        ]);
+    };
+
     const percentage = Math.min(Math.max((count / goal) * 100, 0), 100);
     const isGoalMet = percentage >= 100;
     const barColor = isGoalMet ? theme.colors.success : theme.colors.accent;
 
     return (
         <View style={styles.card}>
+            {emoji ? (
+                <Text style={styles.emoji}>{emoji}</Text>
+            ) : null}
             <Text style={styles.name}>{name}</Text>
             <Text style={styles.count}>{count}</Text>
             <Text style={styles.goal}>Goal: {goal}</Text>
 
-            {/* Progress Bar */}
             <View style={styles.progressBarContainer}>
-                <View
-                    style={[
-                        styles.progressBarFill,
-                        {
-                            width: `${percentage}%`,
-                            backgroundColor: barColor
-                        }
-                    ]}
-                />
+                <View style={[styles.progressBarFill, { width: `${percentage}%`, backgroundColor: barColor }]} />
             </View>
 
-            {/* Control Surface */}
             <TouchableOpacity
                 style={styles.decrementControl}
                 onPress={handleDecrement}
+                onLongPress={handleLongPress}
                 activeOpacity={0.7}
             />
             <TouchableOpacity
                 style={styles.incrementControl}
                 onPress={handleIncrement}
+                onLongPress={handleLongPress}
                 activeOpacity={0.7}
             />
         </View>
@@ -74,14 +83,18 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: theme.colors.surface, // #1E1E1E
+        backgroundColor: theme.colors.surface,
         borderRadius: 16,
         padding: theme.spacing.m,
         marginVertical: theme.spacing.s,
         alignItems: 'center',
         justifyContent: 'center',
-        overflow: 'hidden', // Ensure progress bar doesn't overflow rounded corners
+        overflow: 'hidden',
         position: 'relative',
+    },
+    emoji: {
+        fontSize: 28,
+        marginBottom: 2,
     },
     name: {
         color: theme.colors.secondary,
@@ -92,7 +105,7 @@ const styles = StyleSheet.create({
     },
     count: {
         color: theme.colors.primary,
-        fontSize: 48, // LARGE explicit size for the count
+        fontSize: 48,
         fontWeight: 'bold',
         marginVertical: 4,
     },
@@ -100,7 +113,7 @@ const styles = StyleSheet.create({
         color: theme.colors.secondary,
         fontSize: theme.fontSizes.s,
         marginTop: 4,
-        marginBottom: 8, // Add some space for the progress bar
+        marginBottom: 8,
     },
     progressBarContainer: {
         position: 'absolute',
@@ -108,7 +121,7 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         height: 4,
-        backgroundColor: '#333333', // Dark Grey background for the bar
+        backgroundColor: '#333333',
     },
     progressBarFill: {
         height: '100%',

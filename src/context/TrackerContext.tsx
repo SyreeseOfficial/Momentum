@@ -13,7 +13,9 @@ interface TrackerContextType {
     history: HistoryLog;
     isLoading: boolean;
     unlockedAchievements: AchievementId[];
-    addTracker: (name: string, dailyGoal: number) => void;
+    addTracker: (name: string, dailyGoal: number, emoji?: string) => void;
+    archiveTracker: (id: string) => void;
+    unarchiveTracker: (id: string) => void;
     incrementTracker: (id: string) => void;
     decrementTracker: (id: string) => void;
     deleteTracker: (id: string) => void;
@@ -95,7 +97,7 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
         }
     }, [trackers, history, unlockedAchievements, isLoading]);
 
-    const addTracker = (name: string, dailyGoal: number) => {
+    const addTracker = (name: string, dailyGoal: number, emoji?: string) => {
         const newTracker: Tracker = {
             id: Math.random().toString(36).substr(2, 9),
             name,
@@ -103,8 +105,25 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
             dailyGoal,
             sortOrder: trackers.length,
             isActive: true,
+            emoji: emoji || undefined,
         };
         setTrackers((prev) => [...prev, newTracker]);
+    };
+
+    const archiveTracker = (id: string) => {
+        setTrackers((prev) =>
+            prev.map((tracker) =>
+                tracker.id === id ? { ...tracker, isArchived: true } : tracker
+            )
+        );
+    };
+
+    const unarchiveTracker = (id: string) => {
+        setTrackers((prev) =>
+            prev.map((tracker) =>
+                tracker.id === id ? { ...tracker, isArchived: false } : tracker
+            )
+        );
     };
 
     const incrementTracker = (id: string) => {
@@ -210,6 +229,8 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
                 isLoading,
                 unlockedAchievements,
                 addTracker,
+                archiveTracker,
+                unarchiveTracker,
                 incrementTracker,
                 decrementTracker,
                 deleteTracker,

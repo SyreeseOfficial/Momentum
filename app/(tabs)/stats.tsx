@@ -215,7 +215,7 @@ export default function StatsScreen() {
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Business Dashboard</Text>
+                <Text style={styles.headerTitle}>Stats</Text>
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>

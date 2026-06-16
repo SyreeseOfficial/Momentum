@@ -15,6 +15,8 @@ export default function SettingsScreen() {
         trackers,
         history,
         deleteTracker,
+        archiveTracker,
+        unarchiveTracker,
         clearAllData,
         notificationEnabled,
         notificationTime,
@@ -25,22 +27,27 @@ export default function SettingsScreen() {
 
     const [showTimePicker, setShowTimePicker] = useState(false);
 
+    const activeTrackers = trackers.filter(t => !t.isArchived);
+    const archivedTrackers = trackers.filter(t => t.isArchived);
     const totalActions = history.reduce((acc, record) => acc + record.totalVolume, 0);
-    const activeTrackersCount = trackers.length;
 
-    const handleDeleteTracker = (id: string, name: string) => {
-        Alert.alert(
-            "Delete Tracker",
-            `Are you sure you want to delete "${name}"?`,
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Delete",
-                    style: "destructive",
-                    onPress: () => deleteTracker(id)
-                }
-            ]
-        );
+    const handleTrackerOptions = (id: string, name: string) => {
+        Alert.alert(name, undefined, [
+            {
+                text: 'Archive',
+                onPress: () => archiveTracker(id),
+            },
+            {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: () =>
+                    Alert.alert('Delete Tracker', `Permanently delete "${name}"? This cannot be undone.`, [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Delete', style: 'destructive', onPress: () => deleteTracker(id) },
+                    ]),
+            },
+            { text: 'Cancel', style: 'cancel' },
+        ]);
     };
 
     const handleClearAllData = () => {
@@ -149,20 +156,54 @@ export default function SettingsScreen() {
 
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Manage Trackers</Text>
-                    {trackers.length === 0 ? (
-                        <Text style={styles.emptyText}>No trackers yet.</Text>
+                    {activeTrackers.length === 0 ? (
+                        <Text style={styles.emptyText}>No active trackers.</Text>
                     ) : (
-                        trackers.map(tracker => (
+                        activeTrackers.map(tracker => (
                             <View key={tracker.id} style={styles.trackerRow}>
-                                <Text style={styles.trackerName}>{tracker.name}</Text>
+                                <Text style={styles.trackerName}>
+                                    {tracker.emoji ? `${tracker.emoji} ` : ''}{tracker.name}
+                                </Text>
                                 <TouchableOpacity
-                                    onPress={() => handleDeleteTracker(tracker.id, tracker.name)}
+                                    onPress={() => handleTrackerOptions(tracker.id, tracker.name)}
                                     style={styles.deleteIcon}
                                 >
-                                    <Ionicons name="trash-outline" size={20} color={theme.colors.danger} />
+                                    <Ionicons name="ellipsis-horizontal" size={20} color={theme.colors.secondary} />
                                 </TouchableOpacity>
                             </View>
                         ))
+                    )}
+
+                    {archivedTrackers.length > 0 && (
+                        <View style={styles.archivedSection}>
+                            <Text style={styles.archivedLabel}>Archived</Text>
+                            {archivedTrackers.map(tracker => (
+                                <View key={tracker.id} style={[styles.trackerRow, styles.trackerRowArchived]}>
+                                    <Text style={[styles.trackerName, styles.trackerNameArchived]}>
+                                        {tracker.emoji ? `${tracker.emoji} ` : ''}{tracker.name}
+                                    </Text>
+                                    <View style={styles.archivedActions}>
+                                        <TouchableOpacity
+                                            onPress={() => unarchiveTracker(tracker.id)}
+                                            style={styles.deleteIcon}
+                                        >
+                                            <Ionicons name="refresh-outline" size={20} color={theme.colors.accent} />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            onPress={() =>
+                                                Alert.alert('Delete Tracker', `Permanently delete "${tracker.name}"?`, [
+                                                    { text: 'Cancel', style: 'cancel' },
+                                                    { text: 'Delete', style: 'destructive', onPress: () => deleteTracker(tracker.id) },
+                                                ])
+                                            }
+                                            style={styles.deleteIcon}
+                                        >
+                                            <Ionicons name="trash-outline" size={20} color={theme.colors.danger} />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
                     )}
                 </View>
 
@@ -257,7 +298,7 @@ export default function SettingsScreen() {
 
                         <View style={styles.statsContainer}>
                             <View style={styles.statItem}>
-                                <Text style={styles.statValue}>{activeTrackersCount}</Text>
+                                <Text style={styles.statValue}>{activeTrackers.length}</Text>
                                 <Text style={styles.statLabel}>Active Trackers</Text>
                             </View>
                             <View style={styles.statDivider} />
@@ -323,6 +364,26 @@ const styles = StyleSheet.create({
     },
     deleteIcon: {
         padding: theme.spacing.s,
+    },
+    archivedSection: {
+        marginTop: theme.spacing.m,
+    },
+    archivedLabel: {
+        fontSize: theme.fontSizes.s,
+        color: theme.colors.secondary,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginBottom: theme.spacing.s,
+    },
+    trackerRowArchived: {
+        opacity: 0.6,
+    },
+    trackerNameArchived: {
+        textDecorationLine: 'line-through',
+    },
+    archivedActions: {
+        flexDirection: 'row',
+        gap: 4,
     },
     emptyText: {
         color: theme.colors.secondary,

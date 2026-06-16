@@ -5,11 +5,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTrackers } from '../src/context/TrackerContext';
 import { theme } from '../src/constants/theme';
 
+const QUICK_EMOJIS = ['💧', '🏃', '📚', '💪', '🧘', '✍️', '🎯', '💡', '🌱', '🔥'];
+
 export default function AddTrackerScreen() {
     const router = useRouter();
     const { addTracker } = useTrackers();
     const [name, setName] = useState('');
     const [goal, setGoal] = useState('');
+    const [emoji, setEmoji] = useState('');
 
     const handleSave = () => {
         if (!name.trim()) {
@@ -23,7 +26,7 @@ export default function AddTrackerScreen() {
             return;
         }
 
-        addTracker(name.trim(), goalNumber);
+        addTracker(name.trim(), goalNumber, emoji.trim() || undefined);
         router.back();
     };
 
@@ -54,6 +57,35 @@ export default function AddTrackerScreen() {
                         onChangeText={setGoal}
                         keyboardType="numeric"
                     />
+                </View>
+
+                <View style={styles.formGroup}>
+                    <Text style={styles.label}>Emoji <Text style={styles.optional}>(optional)</Text></Text>
+                    <View style={styles.emojiRow}>
+                        <TextInput
+                            style={[styles.input, styles.emojiInput]}
+                            placeholder="e.g. 💧"
+                            placeholderTextColor={theme.colors.secondary}
+                            value={emoji}
+                            onChangeText={text => setEmoji(text.slice(0, 2))}
+                        />
+                        {emoji ? (
+                            <TouchableOpacity style={styles.clearEmoji} onPress={() => setEmoji('')}>
+                                <Text style={styles.clearEmojiText}>✕</Text>
+                            </TouchableOpacity>
+                        ) : null}
+                    </View>
+                    <View style={styles.quickEmojis}>
+                        {QUICK_EMOJIS.map(e => (
+                            <TouchableOpacity
+                                key={e}
+                                style={[styles.emojiChip, emoji === e && styles.emojiChipSelected]}
+                                onPress={() => setEmoji(emoji === e ? '' : e)}
+                            >
+                                <Text style={styles.emojiChipText}>{e}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
                 </View>
 
                 <View style={styles.buttonContainer}>
@@ -94,6 +126,11 @@ const styles = StyleSheet.create({
         color: theme.colors.secondary,
         marginBottom: theme.spacing.s,
     },
+    optional: {
+        fontSize: theme.fontSizes.s,
+        color: theme.colors.secondary,
+        opacity: 0.6,
+    },
     input: {
         backgroundColor: theme.colors.surface,
         color: theme.colors.primary,
@@ -102,6 +139,43 @@ const styles = StyleSheet.create({
         fontSize: theme.fontSizes.m,
         borderWidth: 1,
         borderColor: '#333',
+    },
+    emojiRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing.s,
+    },
+    emojiInput: {
+        width: 80,
+        textAlign: 'center',
+        fontSize: 24,
+    },
+    clearEmoji: {
+        padding: theme.spacing.s,
+    },
+    clearEmojiText: {
+        color: theme.colors.secondary,
+        fontSize: 16,
+    },
+    quickEmojis: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: theme.spacing.s,
+        marginTop: theme.spacing.m,
+    },
+    emojiChip: {
+        backgroundColor: theme.colors.surface,
+        borderRadius: 8,
+        padding: theme.spacing.s,
+        borderWidth: 1,
+        borderColor: '#333',
+    },
+    emojiChipSelected: {
+        borderColor: theme.colors.accent,
+        backgroundColor: theme.colors.accent + '20',
+    },
+    emojiChipText: {
+        fontSize: 22,
     },
     buttonContainer: {
         flexDirection: 'row',

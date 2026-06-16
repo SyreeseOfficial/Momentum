@@ -5,6 +5,8 @@ export interface Tracker {
     dailyGoal: number;
     sortOrder: number;
     isActive: boolean;
+    emoji?: string;
+    isArchived?: boolean;
 }
 
 export interface HistoryRecord {

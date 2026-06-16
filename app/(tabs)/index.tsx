@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { StyleSheet, Text, View, ScrollView, FlatList, TouchableOpacity, Modal } from 'react-native';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
@@ -17,7 +17,8 @@ import { Achievement } from '../../src/types';
 
 export default function HomeScreen() {
     const router = useRouter();
-    const { trackers, history, incrementTracker, decrementTracker, unlockedAchievements, unlockAchievement } = useTrackers();
+    const { trackers, history, incrementTracker, decrementTracker, unlockedAchievements, unlockAchievement, archiveTracker, deleteTracker } = useTrackers();
+    const activeTrackers = trackers.filter(t => !t.isArchived);
     const { currentStreak, bestStreak } = useStreaks();
     const [unlockedAchievement, setUnlockedAchievement] = useState<Achievement | null>(null);
     const [showAchievements, setShowAchievements] = useState(false);
@@ -25,11 +26,9 @@ export default function HomeScreen() {
     const today = new Date();
     const dateString = format(today, 'EEE, MMM d').toUpperCase();
 
-    // Check for daily goal completion (any tracker hit goal)
     const allGoalsMet = useMemo(() => {
-        const activeTrackers = trackers.filter(t => t.isActive);
-        return activeTrackers.length > 0 && activeTrackers.every(t => t.count >= t.dailyGoal);
-    }, [trackers]);
+        return activeTrackers.length > 0 && activeTrackers.filter(t => t.isActive).every(t => t.count >= t.dailyGoal);
+    }, [activeTrackers]);
 
     // Detect new achievements
     useEffect(() => {
@@ -74,28 +73,34 @@ export default function HomeScreen() {
                         </TouchableOpacity>
                     </View>
                 </View>
-                <Text style={styles.title}>Daily Consistency</Text>
+                <Text style={styles.title}>Dailies</Text>
             </View>
 
             <FlatList
-                data={trackers}
+                data={activeTrackers}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
                     <TrackerCard
                         name={item.name}
                         count={item.count}
                         goal={item.dailyGoal}
+                        emoji={item.emoji}
                         onIncrement={() => {
                             incrementTracker(item.id);
-                            const updatedTrackers = trackers.map(t =>
+                            const updated = activeTrackers.map(t =>
                                 t.id === item.id ? { ...t, count: t.count + 1 } : t
                             );
-                            const allMet = updatedTrackers
-                                .filter(t => t.isActive)
-                                .every(t => t.count >= t.dailyGoal);
+                            const allMet = updated.filter(t => t.isActive).every(t => t.count >= t.dailyGoal);
                             if (allMet) setShowCelebration(true);
                         }}
                         onDecrement={() => decrementTracker(item.id)}
+                        onArchive={() => archiveTracker(item.id)}
+                        onDelete={() =>
+                            Alert.alert('Delete Tracker', `Delete "${item.name}"? This cannot be undone.`, [
+                                { text: 'Cancel', style: 'cancel' },
+                                { text: 'Delete', style: 'destructive', onPress: () => deleteTracker(item.id) },
+                            ])
+                        }
                     />
                 )}
                 contentContainerStyle={styles.listContent}
