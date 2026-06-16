@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Tracker, HistoryLog, HistoryRecord } from '../types';
+import { Tracker, HistoryLog, HistoryRecord, AchievementId } from '../types';
 import { saveData, loadData, clearAllData as clearStorage } from '../utils/storage';
 import { checkAndResetDailyCounts } from '../utils/dateLogic';
 import {
@@ -12,6 +12,7 @@ interface TrackerContextType {
     trackers: Tracker[];
     history: HistoryLog;
     isLoading: boolean;
+    unlockedAchievements: AchievementId[];
     addTracker: (name: string, dailyGoal: number) => void;
     incrementTracker: (id: string) => void;
     decrementTracker: (id: string) => void;
@@ -24,6 +25,7 @@ interface TrackerContextType {
     toggleNotification: (enabled: boolean) => Promise<void>;
     updateNotificationTime: (date: Date) => Promise<void>;
     resetToday: () => void;
+    unlockAchievement: (id: AchievementId) => void;
 }
 
 const TrackerContext = createContext<TrackerContextType | undefined>(undefined);
@@ -46,6 +48,7 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [notificationEnabled, setNotificationEnabled] = useState<boolean>(false);
     const [notificationTime, setNotificationTime] = useState<Date | null>(null);
+    const [unlockedAchievements, setUnlockedAchievements] = useState<AchievementId[]>([]);
 
     // Load data on mount
     useEffect(() => {
@@ -56,11 +59,13 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
                 const loadedDate = await loadData<string>('lastActiveDate') || '';
                 const loadedNotificationEnabled = await loadData<boolean>('notificationEnabled') || false;
                 const loadedNotificationTime = await loadData<string>('notificationTime');
+                const loadedAchievements = await loadData<AchievementId[]>('achievements') || [];
 
                 setNotificationEnabled(loadedNotificationEnabled);
                 if (loadedNotificationTime) {
                     setNotificationTime(new Date(loadedNotificationTime));
                 }
+                setUnlockedAchievements(loadedAchievements);
 
                 const result = checkAndResetDailyCounts(loadedTrackers, loadedDate, loadedHistory);
 
@@ -81,13 +86,14 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
         load();
     }, []);
 
-    // Save data whenever trackers or history changes
+    // Save data whenever trackers, history, or achievements change
     useEffect(() => {
         if (!isLoading) {
             saveData('trackers', trackers);
             saveData('history', history);
+            saveData('achievements', unlockedAchievements);
         }
-    }, [trackers, history, isLoading]);
+    }, [trackers, history, unlockedAchievements, isLoading]);
 
     const addTracker = (name: string, dailyGoal: number) => {
         const newTracker: Tracker = {
@@ -187,12 +193,22 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
         );
     };
 
+    const unlockAchievement = (id: AchievementId) => {
+        setUnlockedAchievements((prev) => {
+            if (!prev.includes(id)) {
+                return [...prev, id];
+            }
+            return prev;
+        });
+    };
+
     return (
         <TrackerContext.Provider
             value={{
                 trackers,
                 history,
                 isLoading,
+                unlockedAchievements,
                 addTracker,
                 incrementTracker,
                 decrementTracker,
@@ -205,6 +221,7 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
                 toggleNotification,
                 updateNotificationTime,
                 resetToday,
+                unlockAchievement,
             }}
         >
             {children}
