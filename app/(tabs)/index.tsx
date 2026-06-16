@@ -13,12 +13,32 @@ import { Confetti } from '../../src/components/Confetti';
 import { Ionicons } from '@expo/vector-icons';
 import { detectNewAchievements, ACHIEVEMENTS } from '../../src/utils/achievements';
 import { calculateTodayVolume, calculateConsistencyScore, calculateGoalCompletionRate } from '../../src/utils/statsLogic';
+import { isWeekendDay } from '../../src/utils/dateLogic';
 import { Achievement } from '../../src/types';
 
 export default function HomeScreen() {
     const router = useRouter();
-    const { trackers, history, incrementTracker, decrementTracker, unlockedAchievements, unlockAchievement, archiveTracker, deleteTracker } = useTrackers();
-    const activeTrackers = trackers.filter(t => !t.isArchived);
+    const { trackers, history, incrementTracker, decrementTracker, unlockedAchievements, unlockAchievement, archiveTracker, deleteTracker, preferences } = useTrackers();
+    const isWeekend = isWeekendDay();
+
+    const sortedActiveTrackers = useMemo(() => {
+        const filtered = trackers.filter(t => !t.isArchived);
+        switch (preferences.sortPreference) {
+            case 'alphabetical':
+                return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+            case 'goalProximity':
+                return [...filtered].sort((a, b) => (b.count / b.dailyGoal) - (a.count / a.dailyGoal));
+            case 'frequency':
+                return [...filtered].sort((a, b) => b.count - a.count);
+            default:
+                return [...filtered].sort((a, b) => a.sortOrder - b.sortOrder);
+        }
+    }, [trackers, preferences.sortPreference]);
+
+    const getEffectiveGoal = (dailyGoal: number) =>
+        isWeekend && preferences.weekendGoalEnabled
+            ? Math.max(1, Math.round(dailyGoal * preferences.weekendGoalMultiplier))
+            : dailyGoal;
     const { currentStreak, bestStreak } = useStreaks();
     const [unlockedAchievement, setUnlockedAchievement] = useState<Achievement | null>(null);
     const [showAchievements, setShowAchievements] = useState(false);
@@ -27,8 +47,10 @@ export default function HomeScreen() {
     const dateString = format(today, 'EEE, MMM d').toUpperCase();
 
     const allGoalsMet = useMemo(() => {
-        return activeTrackers.length > 0 && activeTrackers.filter(t => t.isActive).every(t => t.count >= t.dailyGoal);
-    }, [activeTrackers]);
+        return sortedActiveTrackers.length > 0 && sortedActiveTrackers
+            .filter(t => t.isActive)
+            .every(t => t.count >= getEffectiveGoal(t.dailyGoal));
+    }, [sortedActiveTrackers, isWeekend, preferences.weekendGoalEnabled, preferences.weekendGoalMultiplier]);
 
     // Detect new achievements
     useEffect(() => {
@@ -77,32 +99,37 @@ export default function HomeScreen() {
             </View>
 
             <FlatList
-                data={activeTrackers}
+                data={sortedActiveTrackers}
                 keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                    <TrackerCard
-                        name={item.name}
-                        count={item.count}
-                        goal={item.dailyGoal}
-                        emoji={item.emoji}
-                        onIncrement={() => {
-                            incrementTracker(item.id);
-                            const updated = activeTrackers.map(t =>
-                                t.id === item.id ? { ...t, count: t.count + 1 } : t
-                            );
-                            const allMet = updated.filter(t => t.isActive).every(t => t.count >= t.dailyGoal);
-                            if (allMet) setShowCelebration(true);
-                        }}
-                        onDecrement={() => decrementTracker(item.id)}
-                        onArchive={() => archiveTracker(item.id)}
-                        onDelete={() =>
-                            Alert.alert('Delete Tracker', `Delete "${item.name}"? This cannot be undone.`, [
-                                { text: 'Cancel', style: 'cancel' },
-                                { text: 'Delete', style: 'destructive', onPress: () => deleteTracker(item.id) },
-                            ])
-                        }
-                    />
-                )}
+                renderItem={({ item }) => {
+                    const effectiveGoal = getEffectiveGoal(item.dailyGoal);
+                    return (
+                        <TrackerCard
+                            name={item.name}
+                            count={item.count}
+                            goal={effectiveGoal}
+                            emoji={item.emoji}
+                            onIncrement={() => {
+                                incrementTracker(item.id);
+                                const updated = sortedActiveTrackers.map(t =>
+                                    t.id === item.id ? { ...t, count: t.count + 1 } : t
+                                );
+                                const allMet = updated.filter(t => t.isActive).every(t =>
+                                    t.count >= getEffectiveGoal(t.dailyGoal)
+                                );
+                                if (allMet) setShowCelebration(true);
+                            }}
+                            onDecrement={() => decrementTracker(item.id)}
+                            onArchive={() => archiveTracker(item.id)}
+                            onDelete={() =>
+                                Alert.alert('Delete Tracker', `Delete "${item.name}"? This cannot be undone.`, [
+                                    { text: 'Cancel', style: 'cancel' },
+                                    { text: 'Delete', style: 'destructive', onPress: () => deleteTracker(item.id) },
+                                ])
+                            }
+                        />
+                    );
+                }}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
             />

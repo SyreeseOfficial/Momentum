@@ -1,5 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Switch, Platform, Linking } from 'react-native';
+import React, { useState } from 'react';
+import {
+    View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView,
+    Switch, Platform, Linking
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTrackers } from '../../src/context/TrackerContext';
 import { theme } from '../../src/constants/theme';
@@ -7,10 +10,81 @@ import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useState } from 'react';
+import appJson from '../../app.json';
+
+const APP_VERSION = appJson.expo.version;
+
+const CHANGELOG = [
+    {
+        version: '1.1.0',
+        date: 'Jun 2025',
+        notes: [
+            'Comprehensive stats dashboard with 10+ metrics',
+            'Achievements & celebration animations',
+            'Emoji support on trackers',
+            'Archive habits (restore anytime)',
+            'Sorting, weekend goals, heatmap customization',
+            'Custom day reset time & week start day',
+        ],
+    },
+    {
+        version: '1.0.0',
+        date: 'Jun 2025',
+        notes: [
+            'Initial release',
+            'Daily habit trackers',
+            'Streaks & history',
+            'Daily reminders',
+        ],
+    },
+];
+
+// ─── Reusable setting row components ──────────────────────────────────────────
+
+function SectionHeader({ title }: { title: string }) {
+    return <Text style={styles.sectionTitle}>{title}</Text>;
+}
+
+function SettingRow({ label, sub, right }: { label: string; sub?: string; right: React.ReactNode }) {
+    return (
+        <View style={styles.settingRow}>
+            <View style={styles.settingRowLeft}>
+                <Text style={styles.settingLabel}>{label}</Text>
+                {sub ? <Text style={styles.settingSubLabel}>{sub}</Text> : null}
+            </View>
+            {right}
+        </View>
+    );
+}
+
+function SegmentedControl<T extends string>({
+    options, value, onChange, labels,
+}: {
+    options: T[];
+    value: T;
+    onChange: (v: T) => void;
+    labels?: Record<T, string>;
+}) {
+    return (
+        <View style={styles.segmented}>
+            {options.map(opt => (
+                <TouchableOpacity
+                    key={opt}
+                    style={[styles.segmentBtn, value === opt && styles.segmentBtnActive]}
+                    onPress={() => onChange(opt)}
+                >
+                    <Text style={[styles.segmentText, value === opt && styles.segmentTextActive]}>
+                        {labels ? labels[opt] : opt}
+                    </Text>
+                </TouchableOpacity>
+            ))}
+        </View>
+    );
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function SettingsScreen() {
-    const router = useRouter();
     const {
         trackers,
         history,
@@ -18,25 +92,29 @@ export default function SettingsScreen() {
         archiveTracker,
         unarchiveTracker,
         clearAllData,
+        factoryReset,
         notificationEnabled,
         notificationTime,
         toggleNotification,
         updateNotificationTime,
-        resetToday
+        resetToday,
+        preferences,
+        updatePreference,
     } = useTrackers();
 
     const [showTimePicker, setShowTimePicker] = useState(false);
+    const [showResetTimePicker, setShowResetTimePicker] = useState(false);
+    const [showChangelog, setShowChangelog] = useState(false);
 
     const activeTrackers = trackers.filter(t => !t.isArchived);
     const archivedTrackers = trackers.filter(t => t.isArchived);
-    const totalActions = history.reduce((acc, record) => acc + record.totalVolume, 0);
+    const totalActions = history.reduce((acc, r) => acc + r.totalVolume, 0);
+
+    // ── Handlers ──────────────────────────────────────────────────────────────
 
     const handleTrackerOptions = (id: string, name: string) => {
         Alert.alert(name, undefined, [
-            {
-                text: 'Archive',
-                onPress: () => archiveTracker(id),
-            },
+            { text: 'Archive', onPress: () => archiveTracker(id) },
             {
                 text: 'Delete',
                 style: 'destructive',
@@ -51,93 +129,82 @@ export default function SettingsScreen() {
     };
 
     const handleClearAllData = () => {
+        Alert.alert('Clear All Data', 'Delete all trackers and history? Cannot be undone.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Clear All Data',
+                style: 'destructive',
+                onPress: () => {
+                    clearAllData();
+                    Alert.alert('Done', 'All data has been cleared.');
+                },
+            },
+        ]);
+    };
+
+    const handleFactoryReset = () => {
         Alert.alert(
-            "Clear All Data",
-            "Are you sure you want to delete ALL trackers and history? This action cannot be undone.",
+            'Factory Reset',
+            'Reset everything to defaults — all trackers, history, achievements, and settings will be deleted. This cannot be undone.',
             [
-                { text: "Cancel", style: "cancel" },
+                { text: 'Cancel', style: 'cancel' },
                 {
-                    text: "Clear All Data",
-                    style: "destructive",
-                    onPress: () => {
-                        clearAllData();
-                        Alert.alert("Success", "All data has been cleared.");
-                    }
-                }
+                    text: 'Factory Reset',
+                    style: 'destructive',
+                    onPress: async () => {
+                        await factoryReset();
+                        Alert.alert('Done', 'App has been reset to factory defaults.');
+                    },
+                },
             ]
         );
     };
 
     const handleResetToday = () => {
-        Alert.alert(
-            "Reset Today",
-            "Are you sure you want to reset all progress for today?",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Reset",
-                    style: "destructive",
-                    onPress: () => {
-                        resetToday();
-                        Alert.alert("Success", "Today's progress has been reset.");
-                    }
-                }
-            ]
-        );
+        Alert.alert('Reset Today', "Reset all progress for today?", [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Reset', style: 'destructive', onPress: () => resetToday() },
+        ]);
     };
 
     const handleExportData = async () => {
         try {
-            // Create CSV content
-            // Headers: Date, Name, Count
+            if (!history || history.length === 0) {
+                Alert.alert('No Data', 'There is no history data to export yet.');
+                return;
+            }
             let csvContent = "Date,Name,Count\n";
-
-            // Loop through history to build CSV rows
-            // HistoryLog is HistoryRecord[]
-            // HistoryRecord is { date, totalVolume, details: { trackerName, count, goal }[] }
-
-            if (history && history.length > 0) {
-                history.forEach(record => {
-                    if (record.details && record.details.length > 0) {
-                        record.details.forEach(detail => {
-                            // Ensure CSV safety by escaping commas if necessary, though simple names might not need it
-                            const safeName = detail.trackerName.includes(',') ? `"${detail.trackerName}"` : detail.trackerName;
-                            csvContent += `${record.date},${safeName},${detail.count}\n`;
-                        });
-                    }
+            history.forEach(record => {
+                record.details?.forEach(detail => {
+                    const safeName = detail.trackerName.includes(',') ? `"${detail.trackerName}"` : detail.trackerName;
+                    csvContent += `${record.date},${safeName},${detail.count}\n`;
                 });
-            } else {
-                Alert.alert("No Data", "There is no history data to export yet.");
-                return;
-            }
-
-            // Define file path - use documentDirectory
+            });
             if (!(FileSystem as any).documentDirectory) {
-                Alert.alert("Error", "Document directory not found.");
+                Alert.alert('Error', 'Document directory not found.');
                 return;
             }
-            const fileUri = (FileSystem as any).documentDirectory + "MomentumData.csv";
-
-            // Write to file
+            const fileUri = (FileSystem as any).documentDirectory + 'MomentumData.csv';
             await FileSystem.writeAsStringAsync(fileUri, csvContent, { encoding: 'utf8' });
-
-            // Share file
             if (await Sharing.isAvailableAsync()) {
                 await Sharing.shareAsync(fileUri);
             } else {
-                Alert.alert("Error", "Sharing is not available on this device");
+                Alert.alert('Error', 'Sharing is not available on this device.');
             }
-
         } catch (error) {
-            console.error("Export error:", error);
-            Alert.alert("Error", "Failed to export data. Please try again.");
+            Alert.alert('Error', 'Failed to export data. Please try again.');
         }
     };
-    const onTimeChange = (event: any, selectedDate?: Date) => {
-        const currentDate = selectedDate || notificationTime;
+
+    const onNotifTimeChange = (event: any, selectedDate?: Date) => {
         setShowTimePicker(Platform.OS === 'ios');
-        if (currentDate) {
-            updateNotificationTime(currentDate);
+        if (selectedDate) updateNotificationTime(selectedDate);
+    };
+
+    const onResetTimeChange = (event: any, selectedDate?: Date) => {
+        setShowResetTimePicker(Platform.OS === 'ios');
+        if (selectedDate) {
+            updatePreference('dayResetHour', selectedDate.getHours());
         }
     };
 
@@ -145,6 +212,18 @@ export default function SettingsScreen() {
         if (!date) return '9:00 AM';
         return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     };
+
+    const formatResetHour = (hour: number) => {
+        if (hour === 0) return 'Midnight (default)';
+        const d = new Date();
+        d.setHours(hour, 0, 0, 0);
+        return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    };
+
+    const resetTimeDate = new Date();
+    resetTimeDate.setHours(preferences.dayResetHour, 0, 0, 0);
+
+    // ── Render ────────────────────────────────────────────────────────────────
 
     return (
         <View style={styles.container}>
@@ -154,52 +233,146 @@ export default function SettingsScreen() {
 
             <ScrollView contentContainerStyle={styles.content}>
 
+                {/* ── Tracker Behavior ── */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Manage Trackers</Text>
-                    {activeTrackers.length === 0 ? (
-                        <Text style={styles.emptyText}>No active trackers.</Text>
-                    ) : (
-                        activeTrackers.map(tracker => (
-                            <View key={tracker.id} style={styles.trackerRow}>
-                                <Text style={styles.trackerName}>
-                                    {tracker.emoji ? `${tracker.emoji} ` : ''}{tracker.name}
-                                </Text>
-                                <TouchableOpacity
-                                    onPress={() => handleTrackerOptions(tracker.id, tracker.name)}
-                                    style={styles.deleteIcon}
-                                >
-                                    <Ionicons name="ellipsis-horizontal" size={20} color={theme.colors.secondary} />
-                                </TouchableOpacity>
-                            </View>
-                        ))
+                    <SectionHeader title="Tracker Behavior" />
+
+                    <View style={styles.card}>
+                        <SettingRow
+                            label="Day Reset Time"
+                            sub={formatResetHour(preferences.dayResetHour)}
+                            right={
+                                Platform.OS === 'android' ? (
+                                    <TouchableOpacity onPress={() => setShowResetTimePicker(true)}>
+                                        <Text style={styles.linkText}>Change</Text>
+                                    </TouchableOpacity>
+                                ) : (
+                                    <DateTimePicker
+                                        value={resetTimeDate}
+                                        mode="time"
+                                        display="default"
+                                        onChange={onResetTimeChange}
+                                        themeVariant="dark"
+                                    />
+                                )
+                            }
+                        />
+                        <View style={styles.rowDivider} />
+                        <SettingRow
+                            label="Sorting"
+                            sub="Order of trackers on home screen"
+                            right={null}
+                        />
+                        <SegmentedControl
+                            options={['custom', 'alphabetical', 'goalProximity', 'frequency'] as const}
+                            value={preferences.sortPreference}
+                            onChange={v => updatePreference('sortPreference', v)}
+                            labels={{ custom: 'Custom', alphabetical: 'A–Z', goalProximity: 'Progress', frequency: 'Count' }}
+                        />
+                        <View style={styles.rowDivider} />
+                        <SettingRow
+                            label="Weekend Goals"
+                            sub="Reduce goals on Saturday & Sunday"
+                            right={
+                                <Switch
+                                    trackColor={{ false: theme.colors.surface, true: theme.colors.accent }}
+                                    thumbColor={theme.colors.text}
+                                    ios_backgroundColor={theme.colors.surface}
+                                    onValueChange={v => updatePreference('weekendGoalEnabled', v)}
+                                    value={preferences.weekendGoalEnabled}
+                                />
+                            }
+                        />
+                        {preferences.weekendGoalEnabled && (
+                            <>
+                                <Text style={styles.subLabel}>Weekend goal multiplier</Text>
+                                <SegmentedControl
+                                    options={[0.25, 0.5, 0.75, 1.0] as any}
+                                    value={preferences.weekendGoalMultiplier as any}
+                                    onChange={v => updatePreference('weekendGoalMultiplier', Number(v))}
+                                    labels={{ '0.25': '25%', '0.5': '50%', '0.75': '75%', '1': '100%' } as any}
+                                />
+                            </>
+                        )}
+                    </View>
+
+                    {showResetTimePicker && Platform.OS === 'android' && (
+                        <DateTimePicker
+                            value={resetTimeDate}
+                            mode="time"
+                            display="default"
+                            onChange={onResetTimeChange}
+                        />
                     )}
+                </View>
+
+                {/* ── Display ── */}
+                <View style={styles.section}>
+                    <SectionHeader title="Display" />
+                    <View style={styles.card}>
+                        <SettingRow
+                            label="Week Starts On"
+                            sub={preferences.weekStartDay === 'sunday' ? 'Sunday' : 'Monday'}
+                            right={null}
+                        />
+                        <SegmentedControl
+                            options={['sunday', 'monday'] as const}
+                            value={preferences.weekStartDay}
+                            onChange={v => updatePreference('weekStartDay', v)}
+                            labels={{ sunday: 'Sunday', monday: 'Monday' }}
+                        />
+                    </View>
+                </View>
+
+                {/* ── Manage Trackers ── */}
+                <View style={styles.section}>
+                    <SectionHeader title="Manage Trackers" />
+                    <View style={styles.card}>
+                        {activeTrackers.length === 0 ? (
+                            <Text style={styles.emptyText}>No active trackers.</Text>
+                        ) : (
+                            activeTrackers.map((tracker, i) => (
+                                <View key={tracker.id}>
+                                    {i > 0 && <View style={styles.rowDivider} />}
+                                    <View style={styles.trackerRow}>
+                                        <Text style={styles.trackerName}>
+                                            {tracker.emoji ? `${tracker.emoji} ` : ''}{tracker.name}
+                                        </Text>
+                                        <TouchableOpacity onPress={() => handleTrackerOptions(tracker.id, tracker.name)}>
+                                            <Ionicons name="ellipsis-horizontal" size={20} color={theme.colors.secondary} />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            ))
+                        )}
+                    </View>
 
                     {archivedTrackers.length > 0 && (
-                        <View style={styles.archivedSection}>
+                        <View style={[styles.card, { marginTop: theme.spacing.m }]}>
                             <Text style={styles.archivedLabel}>Archived</Text>
-                            {archivedTrackers.map(tracker => (
-                                <View key={tracker.id} style={[styles.trackerRow, styles.trackerRowArchived]}>
-                                    <Text style={[styles.trackerName, styles.trackerNameArchived]}>
-                                        {tracker.emoji ? `${tracker.emoji} ` : ''}{tracker.name}
-                                    </Text>
-                                    <View style={styles.archivedActions}>
-                                        <TouchableOpacity
-                                            onPress={() => unarchiveTracker(tracker.id)}
-                                            style={styles.deleteIcon}
-                                        >
-                                            <Ionicons name="refresh-outline" size={20} color={theme.colors.accent} />
-                                        </TouchableOpacity>
-                                        <TouchableOpacity
-                                            onPress={() =>
-                                                Alert.alert('Delete Tracker', `Permanently delete "${tracker.name}"?`, [
-                                                    { text: 'Cancel', style: 'cancel' },
-                                                    { text: 'Delete', style: 'destructive', onPress: () => deleteTracker(tracker.id) },
-                                                ])
-                                            }
-                                            style={styles.deleteIcon}
-                                        >
-                                            <Ionicons name="trash-outline" size={20} color={theme.colors.danger} />
-                                        </TouchableOpacity>
+                            {archivedTrackers.map((tracker, i) => (
+                                <View key={tracker.id}>
+                                    {i > 0 && <View style={styles.rowDivider} />}
+                                    <View style={styles.trackerRow}>
+                                        <Text style={[styles.trackerName, styles.trackerNameArchived]}>
+                                            {tracker.emoji ? `${tracker.emoji} ` : ''}{tracker.name}
+                                        </Text>
+                                        <View style={styles.archivedActions}>
+                                            <TouchableOpacity onPress={() => unarchiveTracker(tracker.id)} style={styles.iconBtn}>
+                                                <Ionicons name="refresh-outline" size={20} color={theme.colors.accent} />
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                onPress={() =>
+                                                    Alert.alert('Delete', `Permanently delete "${tracker.name}"?`, [
+                                                        { text: 'Cancel', style: 'cancel' },
+                                                        { text: 'Delete', style: 'destructive', onPress: () => deleteTracker(tracker.id) },
+                                                    ])
+                                                }
+                                                style={styles.iconBtn}
+                                            >
+                                                <Ionicons name="trash-outline" size={20} color={theme.colors.danger} />
+                                            </TouchableOpacity>
+                                        </View>
                                     </View>
                                 </View>
                             ))}
@@ -207,96 +380,103 @@ export default function SettingsScreen() {
                     )}
                 </View>
 
+                {/* ── Data Management ── */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Data Management</Text>
-
-                    <View style={styles.settingRow}>
-                        <View>
-                            <Text style={styles.settingLabel}>Daily Reminders</Text>
-                            <Text style={styles.settingSubLabel}>Get notified to log your progress</Text>
-                        </View>
-                        <Switch
-                            trackColor={{ false: theme.colors.surface, true: theme.colors.primary }}
-                            thumbColor={theme.colors.text}
-                            ios_backgroundColor={theme.colors.surface}
-                            onValueChange={toggleNotification}
-                            value={notificationEnabled}
-                        />
-                    </View>
-
-                    {notificationEnabled && (
-                        <View style={styles.settingRow}>
-                            <Text style={styles.settingLabel}>Reminder Time</Text>
-                            {Platform.OS === 'android' && (
-                                <TouchableOpacity onPress={() => setShowTimePicker(true)}>
-                                    <Text style={styles.timeValue}>{formatTime(notificationTime)}</Text>
-                                </TouchableOpacity>
-                            )}
-                            {Platform.OS === 'ios' && (
-                                <DateTimePicker
-                                    testID="dateTimePicker"
-                                    value={notificationTime || new Date()}
-                                    mode="time"
-                                    is24Hour={false}
-                                    display="default"
-                                    onChange={onTimeChange}
-                                    themeVariant="dark"
+                    <SectionHeader title="Data Management" />
+                    <View style={styles.card}>
+                        <SettingRow
+                            label="Daily Reminders"
+                            sub="Get notified to log your progress"
+                            right={
+                                <Switch
+                                    trackColor={{ false: theme.colors.surface, true: theme.colors.accent }}
+                                    thumbColor={theme.colors.text}
+                                    ios_backgroundColor={theme.colors.surface}
+                                    onValueChange={toggleNotification}
+                                    value={notificationEnabled}
                                 />
-                            )}
-                        </View>
-                    )}
+                            }
+                        />
+                        {notificationEnabled && (
+                            <>
+                                <View style={styles.rowDivider} />
+                                <SettingRow
+                                    label="Reminder Time"
+                                    sub={undefined}
+                                    right={
+                                        Platform.OS === 'android' ? (
+                                            <TouchableOpacity onPress={() => setShowTimePicker(true)}>
+                                                <Text style={styles.linkText}>{formatTime(notificationTime)}</Text>
+                                            </TouchableOpacity>
+                                        ) : (
+                                            <DateTimePicker
+                                                value={notificationTime || new Date()}
+                                                mode="time"
+                                                display="default"
+                                                onChange={onNotifTimeChange}
+                                                themeVariant="dark"
+                                            />
+                                        )
+                                    }
+                                />
+                            </>
+                        )}
+                    </View>
 
                     {showTimePicker && Platform.OS === 'android' && (
                         <DateTimePicker
-                            testID="dateTimePicker"
                             value={notificationTime || new Date()}
                             mode="time"
-                            is24Hour={false}
                             display="default"
-                            onChange={onTimeChange}
+                            onChange={onNotifTimeChange}
                         />
                     )}
 
+                    <View style={styles.buttonGroup}>
+                        <TouchableOpacity style={styles.actionButton} onPress={handleExportData}>
+                            <Ionicons name="download-outline" size={20} color={theme.colors.background} />
+                            <Text style={styles.actionButtonText}>Export CSV</Text>
+                        </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.actionButton} onPress={handleExportData}>
-                        <Ionicons name="download-outline" size={20} color={theme.colors.background} />
-                        <Text style={styles.actionButtonText}>Export CSV</Text>
-                    </TouchableOpacity>
+                        <TouchableOpacity style={[styles.actionButton, styles.dangerOutlineButton]} onPress={handleResetToday}>
+                            <Ionicons name="refresh-outline" size={20} color={theme.colors.danger} />
+                            <Text style={[styles.actionButtonText, { color: theme.colors.danger }]}>Reset Today's Progress</Text>
+                        </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={[styles.actionButton, styles.resetButton]}
-                        onPress={handleResetToday}
-                    >
-                        <Ionicons name="refresh-outline" size={20} color={theme.colors.danger} />
-                        <Text style={[styles.actionButtonText, { color: theme.colors.danger }]}>Reset Today's Progress</Text>
-                    </TouchableOpacity>
+                        <TouchableOpacity style={[styles.actionButton, styles.dangerOutlineButton]} onPress={handleClearAllData}>
+                            <Ionicons name="trash-outline" size={20} color={theme.colors.danger} />
+                            <Text style={[styles.actionButtonText, { color: theme.colors.danger }]}>Clear All Data</Text>
+                        </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={[styles.actionButton, styles.clearButton]}
-                        onPress={handleClearAllData}
-                    >
-                        <Ionicons name="trash-outline" size={20} color={theme.colors.background} />
-                        <Text style={[styles.actionButtonText, { color: theme.colors.background }]}>Clear All Data</Text>
-                    </TouchableOpacity>
+                        <TouchableOpacity style={[styles.actionButton, styles.dangerSolidButton]} onPress={handleFactoryReset}>
+                            <Ionicons name="nuclear-outline" size={20} color="#fff" />
+                            <Text style={[styles.actionButtonText, { color: '#fff' }]}>Factory Reset</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
+                {/* ── About ── */}
                 <View style={[styles.section, styles.aboutSection]}>
-                    <Text style={styles.sectionTitle}>About</Text>
-                    <View style={styles.aboutCard}>
-                        <Ionicons name="code-slash-outline" size={32} color={theme.colors.accent} style={styles.aboutIcon} />
-                        <Text style={styles.aboutTitle}>Momentum</Text>
+                    <SectionHeader title="About" />
+                    <View style={styles.card}>
+                        <View style={styles.aboutHeader}>
+                            <Ionicons name="code-slash-outline" size={32} color={theme.colors.accent} />
+                            <View style={styles.aboutTitleBlock}>
+                                <Text style={styles.aboutTitle}>Momentum</Text>
+                                <Text style={styles.aboutVersion}>Version {APP_VERSION}</Text>
+                            </View>
+                        </View>
                         <Text style={styles.aboutSubtitle}>Built by Syreese Delos Santos</Text>
-                        <Text style={styles.aboutNote}>Built in ~30 mins 🚀</Text>
 
                         <TouchableOpacity
                             style={styles.githubButton}
                             onPress={() => Linking.openURL('https://github.com/SyreeseOfficial/Momentum')}
                         >
-                            <Ionicons name="logo-github" size={20} color={theme.colors.text} />
-                            <Text style={styles.githubButtonText}>View Source on GitHub</Text>
+                            <Ionicons name="logo-github" size={18} color={theme.colors.text} />
+                            <Text style={styles.githubButtonText}>View on GitHub</Text>
                         </TouchableOpacity>
 
-                        <View style={styles.statsContainer}>
+                        <View style={styles.statsRow}>
                             <View style={styles.statItem}>
                                 <Text style={styles.statValue}>{activeTrackers.length}</Text>
                                 <Text style={styles.statLabel}>Active Trackers</Text>
@@ -308,6 +488,35 @@ export default function SettingsScreen() {
                             </View>
                         </View>
                     </View>
+
+                    {/* Changelog */}
+                    <TouchableOpacity
+                        style={styles.changelogToggle}
+                        onPress={() => setShowChangelog(v => !v)}
+                    >
+                        <Text style={styles.changelogToggleText}>What's New</Text>
+                        <Ionicons
+                            name={showChangelog ? 'chevron-up-outline' : 'chevron-down-outline'}
+                            size={16}
+                            color={theme.colors.secondary}
+                        />
+                    </TouchableOpacity>
+
+                    {showChangelog && (
+                        <View style={styles.card}>
+                            {CHANGELOG.map((entry, i) => (
+                                <View key={entry.version} style={i > 0 ? { marginTop: theme.spacing.l } : undefined}>
+                                    <View style={styles.changelogVersionRow}>
+                                        <Text style={styles.changelogVersion}>v{entry.version}</Text>
+                                        <Text style={styles.changelogDate}>{entry.date}</Text>
+                                    </View>
+                                    {entry.notes.map(note => (
+                                        <Text key={note} style={styles.changelogNote}>• {note}</Text>
+                                    ))}
+                                </View>
+                            ))}
+                        </View>
+                    )}
                 </View>
 
             </ScrollView>
@@ -321,14 +530,9 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.background,
     },
     header: {
-        flexDirection: 'row',
-        alignItems: 'center',
         padding: theme.spacing.m,
-        paddingTop: 60, // Adjust for status bar if needed, usually SafeAreaView handles this but simple padding works
+        paddingTop: 60,
         backgroundColor: theme.colors.surface,
-    },
-    backButton: {
-        marginRight: theme.spacing.m,
     },
     title: {
         fontSize: theme.fontSizes.l,
@@ -337,36 +541,101 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: theme.spacing.m,
+        paddingBottom: 60,
     },
     section: {
         marginBottom: theme.spacing.xl,
     },
     sectionTitle: {
-        fontSize: theme.fontSizes.m,
+        fontSize: theme.fontSizes.s,
         fontWeight: '600',
         color: theme.colors.secondary,
-        marginBottom: theme.spacing.m,
+        marginBottom: theme.spacing.s,
         textTransform: 'uppercase',
         letterSpacing: 1,
     },
+    card: {
+        backgroundColor: theme.colors.surface,
+        borderRadius: 12,
+        padding: theme.spacing.m,
+    },
+    settingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: theme.spacing.s,
+    },
+    settingRowLeft: {
+        flex: 1,
+        marginRight: theme.spacing.m,
+    },
+    settingLabel: {
+        fontSize: theme.fontSizes.m,
+        color: theme.colors.text,
+    },
+    settingSubLabel: {
+        fontSize: theme.fontSizes.s,
+        color: theme.colors.secondary,
+        marginTop: 2,
+    },
+    subLabel: {
+        fontSize: theme.fontSizes.s,
+        color: theme.colors.secondary,
+        marginTop: theme.spacing.s,
+        marginBottom: 6,
+    },
+    rowDivider: {
+        height: 1,
+        backgroundColor: theme.colors.background,
+        marginVertical: 4,
+    },
+    linkText: {
+        fontSize: theme.fontSizes.m,
+        color: theme.colors.accent,
+        fontWeight: '600',
+    },
+
+    // Segmented control
+    segmented: {
+        flexDirection: 'row',
+        backgroundColor: theme.colors.background,
+        borderRadius: 8,
+        padding: 3,
+        marginTop: 6,
+    },
+    segmentBtn: {
+        flex: 1,
+        paddingVertical: 6,
+        alignItems: 'center',
+        borderRadius: 6,
+    },
+    segmentBtnActive: {
+        backgroundColor: theme.colors.accent,
+    },
+    segmentText: {
+        fontSize: 12,
+        color: theme.colors.secondary,
+        fontWeight: '600',
+    },
+    segmentTextActive: {
+        color: '#fff',
+    },
+
+    // Tracker rows
     trackerRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: theme.colors.surface,
-        padding: theme.spacing.m,
-        borderRadius: 8,
-        marginBottom: theme.spacing.s,
+        paddingVertical: theme.spacing.s,
     },
     trackerName: {
         fontSize: theme.fontSizes.m,
         color: theme.colors.primary,
+        flex: 1,
     },
-    deleteIcon: {
-        padding: theme.spacing.s,
-    },
-    archivedSection: {
-        marginTop: theme.spacing.m,
+    trackerNameArchived: {
+        textDecorationLine: 'line-through',
+        opacity: 0.5,
     },
     archivedLabel: {
         fontSize: theme.fontSizes.s,
@@ -375,19 +644,23 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
         marginBottom: theme.spacing.s,
     },
-    trackerRowArchived: {
-        opacity: 0.6,
-    },
-    trackerNameArchived: {
-        textDecorationLine: 'line-through',
-    },
     archivedActions: {
         flexDirection: 'row',
-        gap: 4,
+        gap: 8,
+    },
+    iconBtn: {
+        padding: 4,
     },
     emptyText: {
         color: theme.colors.secondary,
         fontStyle: 'italic',
+        fontSize: theme.fontSizes.m,
+    },
+
+    // Buttons
+    buttonGroup: {
+        marginTop: theme.spacing.m,
+        gap: theme.spacing.s,
     },
     actionButton: {
         flexDirection: 'row',
@@ -395,69 +668,68 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         backgroundColor: theme.colors.primary,
         padding: theme.spacing.m,
-        borderRadius: 8,
-        marginBottom: theme.spacing.m,
+        borderRadius: 10,
+        gap: theme.spacing.s,
     },
     actionButtonText: {
-        marginLeft: theme.spacing.s,
         fontSize: theme.fontSizes.m,
         fontWeight: '600',
         color: theme.colors.background,
     },
-    clearButton: {
-        backgroundColor: theme.colors.danger,
-    },
-    resetButton: {
+    dangerOutlineButton: {
         backgroundColor: 'transparent',
         borderWidth: 1,
         borderColor: theme.colors.danger,
     },
+    dangerSolidButton: {
+        backgroundColor: theme.colors.danger,
+    },
+
+    // About
     aboutSection: {
-        marginTop: theme.spacing.l,
         marginBottom: 40,
     },
-    aboutCard: {
-        backgroundColor: theme.colors.surface,
-        padding: theme.spacing.l,
-        borderRadius: 16,
+    aboutHeader: {
+        flexDirection: 'row',
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: theme.colors.background, // Subtle border
-        // Shadow for iOS
-        shadowColor: "#000",
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
-        shadowOpacity: 0.30,
-        shadowRadius: 4.65,
-        // Elevation for Android
-        elevation: 8,
-    },
-    aboutIcon: {
+        gap: theme.spacing.m,
         marginBottom: theme.spacing.s,
+    },
+    aboutTitleBlock: {
+        flex: 1,
     },
     aboutTitle: {
-        fontSize: theme.fontSizes.xl,
+        fontSize: theme.fontSizes.l,
         fontWeight: 'bold',
         color: theme.colors.text,
-        marginBottom: 4,
     },
-    aboutSubtitle: {
-        fontSize: theme.fontSizes.m,
-        color: theme.colors.primary,
-        fontWeight: '600',
-        marginBottom: theme.spacing.s,
-    },
-    aboutNote: {
+    aboutVersion: {
         fontSize: theme.fontSizes.s,
         color: theme.colors.secondary,
-        fontStyle: 'italic',
+    },
+    aboutSubtitle: {
+        fontSize: theme.fontSizes.s,
+        color: theme.colors.secondary,
+        marginBottom: theme.spacing.m,
+    },
+    githubButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.background,
+        paddingHorizontal: theme.spacing.m,
+        paddingVertical: theme.spacing.s,
+        borderRadius: 20,
+        alignSelf: 'flex-start',
+        gap: 8,
         marginBottom: theme.spacing.l,
     },
-    statsContainer: {
+    githubButtonText: {
+        color: theme.colors.text,
+        fontWeight: '600',
+        fontSize: theme.fontSizes.s,
+    },
+    statsRow: {
         flexDirection: 'row',
-        width: '100%',
         justifyContent: 'space-around',
         alignItems: 'center',
         borderTopWidth: 1,
@@ -479,44 +751,41 @@ const styles = StyleSheet.create({
     },
     statDivider: {
         width: 1,
-        height: '80%',
+        height: 32,
         backgroundColor: theme.colors.background,
     },
-    settingRow: {
+
+    // Changelog
+    changelogToggle: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingVertical: theme.spacing.m,
-        borderBottomWidth: 1,
-        borderBottomColor: theme.colors.surface,
     },
-    settingLabel: {
+    changelogToggleText: {
         fontSize: theme.fontSizes.m,
-        color: theme.colors.text,
+        color: theme.colors.secondary,
+        fontWeight: '600',
     },
-    settingSubLabel: {
+    changelogVersionRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: theme.spacing.s,
+    },
+    changelogVersion: {
+        fontSize: theme.fontSizes.m,
+        fontWeight: 'bold',
+        color: theme.colors.accent,
+    },
+    changelogDate: {
         fontSize: theme.fontSizes.s,
         color: theme.colors.secondary,
-        marginTop: 2,
     },
-    timeValue: {
-        fontSize: theme.fontSizes.m,
-        color: theme.colors.accent,
-        fontWeight: 'bold',
-    },
-    githubButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: theme.colors.background,
-        paddingHorizontal: theme.spacing.m,
-        paddingVertical: theme.spacing.s,
-        borderRadius: 20,
-        marginBottom: theme.spacing.l,
-        gap: 8,
-    },
-    githubButtonText: {
-        color: theme.colors.text,
-        fontWeight: '600',
+    changelogNote: {
         fontSize: theme.fontSizes.s,
+        color: theme.colors.secondary,
+        marginBottom: 4,
+        lineHeight: 18,
     },
 });

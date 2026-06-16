@@ -46,3 +46,21 @@ export interface Achievement {
 export interface AchievementsState {
     unlocked: AchievementId[];
 }
+
+export interface AppPreferences {
+    weekStartDay: 'sunday' | 'monday';
+    sortPreference: 'custom' | 'alphabetical' | 'goalProximity' | 'frequency';
+    dayResetHour: number; // 0-23, default 0 (midnight)
+    heatmapWeeks: 4 | 8 | 12 | 24;
+    weekendGoalEnabled: boolean;
+    weekendGoalMultiplier: number; // 0.25, 0.5, 0.75, 1.0
+}
+
+export const DEFAULT_PREFERENCES: AppPreferences = {
+    weekStartDay: 'sunday',
+    sortPreference: 'custom',
+    dayResetHour: 0,
+    heatmapWeeks: 12,
+    weekendGoalEnabled: false,
+    weekendGoalMultiplier: 0.5,
+};

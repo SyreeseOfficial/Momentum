@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { format, parseISO } from 'date-fns';
@@ -125,11 +125,12 @@ function MiniBarChart({ data, goal }: { data: { date: string; count: number }[];
     );
 }
 
-function DayOfWeekChart({ patterns }: { patterns: { name: string; avg: number; normalized: number }[] }) {
-    const maxDay = patterns.reduce((best, d) => d.avg > best.avg ? d : best, patterns[0]);
+function DayOfWeekChart({ patterns, weekStartDay }: { patterns: { name: string; avg: number; normalized: number }[]; weekStartDay: 'sunday' | 'monday' }) {
+    const ordered = weekStartDay === 'monday' ? [...patterns.slice(1), patterns[0]] : patterns;
+    const maxDay = ordered.reduce((best, d) => d.avg > best.avg ? d : best, ordered[0]);
     return (
         <View style={styles.dowChart}>
-            {patterns.map(day => (
+            {ordered.map(day => (
                 <View key={day.name} style={styles.dowBarWrapper}>
                     <View style={styles.dowBarTrack}>
                         <View
@@ -154,7 +155,7 @@ function DayOfWeekChart({ patterns }: { patterns: { name: string; avg: number; n
 
 export default function StatsScreen() {
     const insets = useSafeAreaInsets();
-    const { trackers, history } = useTrackers();
+    const { trackers, history, preferences, updatePreference } = useTrackers();
     const { currentStreak, bestStreak } = useStreaks();
 
     const stats = useMemo(() => {
@@ -171,7 +172,7 @@ export default function StatsScreen() {
         const pace = calculatePaceIndicator(trackers, history);
         const dowPatterns = calculateDayOfWeekPatterns(trackers, history);
         const weekComparison = calculateWeekComparison(trackers, history);
-        const heatmapCells = calculateActivityHeatmap(trackers, history, 12);
+        const heatmapCells = calculateActivityHeatmap(trackers, history, preferences.heatmapWeeks);
         const perTrackerHistory = calculatePerTrackerHistory(trackers, history, 7);
 
         return {
@@ -191,7 +192,7 @@ export default function StatsScreen() {
             heatmapCells,
             perTrackerHistory,
         };
-    }, [trackers, history, currentStreak]);
+    }, [trackers, history, currentStreak, preferences.heatmapWeeks]);
 
     const getMomentumDetails = (momentum: number | null) => {
         if (momentum === null) return { icon: 'remove-outline', color: theme.colors.secondary, text: 'No data for yesterday' };
@@ -325,7 +326,22 @@ export default function StatsScreen() {
 
                 {/* ── Activity Heatmap ── */}
                 <View>
-                    <SectionTitle title="Activity Heatmap" />
+                    <View style={styles.sectionHeaderRow}>
+                        <SectionTitle title="Activity Heatmap" />
+                        <View style={styles.heatmapToggleRow}>
+                            {([4, 8, 12, 24] as const).map(w => (
+                                <TouchableOpacity
+                                    key={w}
+                                    style={[styles.heatmapToggle, preferences.heatmapWeeks === w && styles.heatmapToggleActive]}
+                                    onPress={() => updatePreference('heatmapWeeks', w)}
+                                >
+                                    <Text style={[styles.heatmapToggleText, preferences.heatmapWeeks === w && styles.heatmapToggleTextActive]}>
+                                        {w}w
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
                     <View style={styles.surface}>
                         <Heatmap cells={stats.heatmapCells} />
                     </View>
@@ -336,7 +352,7 @@ export default function StatsScreen() {
                     <SectionTitle title="Day of Week Patterns" />
                     <View style={styles.surface}>
                         <Text style={styles.dowSubtext}>Average daily volume by weekday</Text>
-                        <DayOfWeekChart patterns={stats.dowPatterns} />
+                        <DayOfWeekChart patterns={stats.dowPatterns} weekStartDay={preferences.weekStartDay} />
                     </View>
                 </View>
 
@@ -426,6 +442,33 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: theme.colors.text,
         marginBottom: theme.spacing.m,
+    },
+    sectionHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: theme.spacing.m,
+    },
+    heatmapToggleRow: {
+        flexDirection: 'row',
+        gap: 4,
+    },
+    heatmapToggle: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+        backgroundColor: theme.colors.surface,
+    },
+    heatmapToggleActive: {
+        backgroundColor: theme.colors.accent,
+    },
+    heatmapToggleText: {
+        fontSize: 11,
+        color: theme.colors.secondary,
+        fontWeight: '600',
+    },
+    heatmapToggleTextActive: {
+        color: '#fff',
     },
     row: {
         flexDirection: 'row',

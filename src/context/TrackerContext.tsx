@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Tracker, HistoryLog, HistoryRecord, AchievementId } from '../types';
+import { Tracker, HistoryLog, HistoryRecord, AchievementId, AppPreferences, DEFAULT_PREFERENCES } from '../types';
 import { saveData, loadData, clearAllData as clearStorage } from '../utils/storage';
 import { checkAndResetDailyCounts } from '../utils/dateLogic';
 import {
@@ -28,6 +28,9 @@ interface TrackerContextType {
     updateNotificationTime: (date: Date) => Promise<void>;
     resetToday: () => void;
     unlockAchievement: (id: AchievementId) => void;
+    preferences: AppPreferences;
+    updatePreference: <K extends keyof AppPreferences>(key: K, value: AppPreferences[K]) => void;
+    factoryReset: () => Promise<void>;
 }
 
 const TrackerContext = createContext<TrackerContextType | undefined>(undefined);
@@ -51,6 +54,7 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
     const [notificationEnabled, setNotificationEnabled] = useState<boolean>(false);
     const [notificationTime, setNotificationTime] = useState<Date | null>(null);
     const [unlockedAchievements, setUnlockedAchievements] = useState<AchievementId[]>([]);
+    const [preferences, setPreferences] = useState<AppPreferences>(DEFAULT_PREFERENCES);
 
     // Load data on mount
     useEffect(() => {
@@ -62,14 +66,16 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
                 const loadedNotificationEnabled = await loadData<boolean>('notificationEnabled') || false;
                 const loadedNotificationTime = await loadData<string>('notificationTime');
                 const loadedAchievements = await loadData<AchievementId[]>('achievements') || [];
+                const loadedPreferences = await loadData<AppPreferences>('preferences') || DEFAULT_PREFERENCES;
 
                 setNotificationEnabled(loadedNotificationEnabled);
                 if (loadedNotificationTime) {
                     setNotificationTime(new Date(loadedNotificationTime));
                 }
                 setUnlockedAchievements(loadedAchievements);
+                setPreferences(loadedPreferences);
 
-                const result = checkAndResetDailyCounts(loadedTrackers, loadedDate, loadedHistory);
+                const result = checkAndResetDailyCounts(loadedTrackers, loadedDate, loadedHistory, loadedPreferences.dayResetHour);
 
                 if (result) {
                     setTrackers(result.newTrackers);
@@ -221,6 +227,30 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
         });
     };
 
+    const updatePreference = <K extends keyof AppPreferences>(key: K, value: AppPreferences[K]) => {
+        setPreferences(prev => {
+            const updated = { ...prev, [key]: value };
+            saveData('preferences', updated);
+            return updated;
+        });
+    };
+
+    const factoryReset = async () => {
+        try {
+            await clearStorage();
+            setTrackers([]);
+            setHistory([]);
+            setNotificationEnabled(false);
+            setNotificationTime(null);
+            setUnlockedAchievements([]);
+            setPreferences(DEFAULT_PREFERENCES);
+            await cancelAllNotifications();
+            saveData('lastActiveDate', '');
+        } catch (e) {
+            console.error('Failed to factory reset', e);
+        }
+    };
+
     return (
         <TrackerContext.Provider
             value={{
@@ -243,6 +273,9 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
                 updateNotificationTime,
                 resetToday,
                 unlockAchievement,
+                preferences,
+                updatePreference,
+                factoryReset,
             }}
         >
             {children}
