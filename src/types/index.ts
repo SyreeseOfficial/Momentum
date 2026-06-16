@@ -59,6 +59,7 @@ export interface AppPreferences {
     showEmojiOnCard: boolean;
     showGoalOnCard: boolean;
     cardStyle: 'detailed' | 'minimal';
+    gridColumns: 1 | 2 | 3;
 }
 
 export type EnergyLevel = 1 | 2 | 3 | 4 | 5;
@@ -89,4 +90,5 @@ export const DEFAULT_PREFERENCES: AppPreferences = {
     showEmojiOnCard: true,
     showGoalOnCard: true,
     cardStyle: 'detailed',
+    gridColumns: 1,
 };

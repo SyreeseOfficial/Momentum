@@ -14,6 +14,7 @@ interface TrackerContextType {
     isLoading: boolean;
     unlockedAchievements: AchievementId[];
     addTracker: (name: string, dailyGoal: number, emoji?: string) => void;
+    editTracker: (id: string, updates: { name: string; dailyGoal: number; emoji?: string }) => void;
     archiveTracker: (id: string) => void;
     unarchiveTracker: (id: string) => void;
     incrementTracker: (id: string) => void;
@@ -120,6 +121,12 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
             emoji: emoji || undefined,
         };
         setTrackers((prev) => [...prev, newTracker]);
+    };
+
+    const editTracker = (id: string, updates: { name: string; dailyGoal: number; emoji?: string }) => {
+        setTrackers(prev =>
+            prev.map(t => t.id === id ? { ...t, ...updates } : t)
+        );
     };
 
     const archiveTracker = (id: string) => {
@@ -281,6 +288,7 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
                 isLoading,
                 unlockedAchievements,
                 addTracker,
+                editTracker,
                 archiveTracker,
                 unarchiveTracker,
                 incrementTracker,

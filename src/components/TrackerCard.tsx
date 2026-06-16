@@ -12,12 +12,13 @@ interface TrackerCardProps {
     emoji?: string;
     onIncrement: () => void;
     onDecrement: () => void;
+    onEdit: () => void;
     onArchive: () => void;
     onDelete: () => void;
 }
 
 export const TrackerCard: React.FC<TrackerCardProps> = ({
-    name, count, goal, emoji, onIncrement, onDecrement, onArchive, onDelete,
+    name, count, goal, emoji, onIncrement, onDecrement, onEdit, onArchive, onDelete,
 }) => {
     const { preferences } = useTrackers();
     const accentColor = useAccentColor();
@@ -41,24 +42,34 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
     const handleLongPress = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         Alert.alert(name, undefined, [
+            { text: 'Edit', onPress: onEdit },
             { text: 'Archive', onPress: onArchive },
             { text: 'Delete', style: 'destructive', onPress: onDelete },
             { text: 'Cancel', style: 'cancel' },
         ]);
     };
 
+    const { gridColumns } = preferences;
+    const isCompact = gridColumns === 2;
+    const isMicro = gridColumns === 3;
+
     const percentage = Math.min(Math.max((count / goal) * 100, 0), 100);
     const isGoalMet = percentage >= 100;
     const barColor = isGoalMet ? theme.colors.success : accentColor;
 
     return (
-        <View style={[styles.card, isMinimal && styles.cardMinimal]}>
+        <View style={[
+            styles.card,
+            isMinimal && styles.cardMinimal,
+            isCompact && styles.cardCompact,
+            isMicro && styles.cardMicro,
+        ]}>
             {showEmojiOnCard && emoji ? (
-                <Text style={[styles.emoji, isMinimal && styles.emojiMinimal]}>{emoji}</Text>
+                <Text style={[styles.emoji, (isMinimal || isCompact) && styles.emojiMinimal, isMicro && styles.emojiMicro]}>{emoji}</Text>
             ) : null}
-            <Text style={[styles.name, isMinimal && styles.nameMinimal]}>{name}</Text>
-            <Text style={[styles.count, isMinimal && styles.countMinimal]}>{count}</Text>
-            {showGoalOnCard && !isMinimal ? (
+            <Text style={[styles.name, (isMinimal || isCompact) && styles.nameMinimal, isMicro && styles.nameMicro]}>{name}</Text>
+            <Text style={[styles.count, isMinimal && styles.countMinimal, isCompact && styles.countCompact, isMicro && styles.countMicro]}>{count}</Text>
+            {showGoalOnCard && !isMinimal && !isCompact && !isMicro ? (
                 <Text style={styles.goal}>Goal: {goal}</Text>
             ) : null}
 
@@ -96,12 +107,23 @@ const styles = StyleSheet.create({
     cardMinimal: {
         paddingVertical: 10,
     },
+    cardCompact: {
+        paddingVertical: theme.spacing.s,
+        paddingHorizontal: theme.spacing.s,
+    },
+    cardMicro: {
+        paddingVertical: 6,
+        paddingHorizontal: 6,
+    },
     emoji: {
         fontSize: 28,
         marginBottom: 2,
     },
     emojiMinimal: {
         fontSize: 20,
+    },
+    emojiMicro: {
+        fontSize: 16,
     },
     name: {
         color: theme.colors.secondary,
@@ -113,6 +135,9 @@ const styles = StyleSheet.create({
     nameMinimal: {
         fontSize: 11,
     },
+    nameMicro: {
+        fontSize: 9,
+    },
     count: {
         color: theme.colors.primary,
         fontSize: 48,
@@ -122,6 +147,14 @@ const styles = StyleSheet.create({
     countMinimal: {
         fontSize: 32,
         marginVertical: 2,
+    },
+    countCompact: {
+        fontSize: 36,
+        marginVertical: 2,
+    },
+    countMicro: {
+        fontSize: 26,
+        marginVertical: 1,
     },
     goal: {
         color: theme.colors.secondary,

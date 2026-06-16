@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { format, parseISO } from 'date-fns';
 import { useTrackers } from '../../src/context/TrackerContext';
+import { ENERGY_LABELS, EnergyLevel } from '../../src/types';
 import { useStreaks } from '../../src/hooks/useStreaks';
 import { useAccentColor } from '../../src/hooks/useAccentColor';
 import { theme } from '../../src/constants/theme';
@@ -28,6 +29,7 @@ import {
     calculateTrackerTrend,
     calculateMilestones,
     calculateCorrelationMatrix,
+    calculateEnergyStats,
 } from '../../src/utils/statsLogic';
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
@@ -254,7 +256,7 @@ function DayOfWeekChart({ patterns, weekStartDay }: { patterns: { name: string; 
 
 export default function StatsScreen() {
     const insets = useSafeAreaInsets();
-    const { trackers, history, preferences, updatePreference } = useTrackers();
+    const { trackers, history, preferences, updatePreference, energyLog } = useTrackers();
     const { currentStreak, bestStreak } = useStreaks();
     const accentColor = useAccentColor();
     const [timelineTracker, setTimelineTracker] = useState<string | null>(null);
@@ -279,6 +281,7 @@ export default function StatsScreen() {
         const varianceScore = calculateVarianceScore(trackers, history, 30);
         const milestones = calculateMilestones(trackers, history, currentStreak);
         const correlationMatrix = calculateCorrelationMatrix(trackers, history, 30);
+        const energyStats = calculateEnergyStats(energyLog, history, trackers);
 
         return {
             todayVolume,
@@ -299,8 +302,9 @@ export default function StatsScreen() {
             varianceScore,
             milestones,
             correlationMatrix,
+            energyStats,
         };
-    }, [trackers, history, currentStreak, preferences.heatmapWeeks]);
+    }, [trackers, history, currentStreak, preferences.heatmapWeeks, energyLog]);
 
     const getMomentumDetails = (momentum: number | null) => {
         if (momentum === null) return { icon: 'remove-outline', color: theme.colors.secondary, text: 'No data for yesterday' };
@@ -605,6 +609,88 @@ export default function StatsScreen() {
                         )}
                     </View>
                 </View>
+
+                {/* ── Energy Stats ── */}
+                {stats.energyStats.totalLogged > 0 && (
+                    <View>
+                        <SectionTitle title="Energy Tracker" />
+                        <View style={styles.row}>
+                            <View style={styles.card}>
+                                <Text style={styles.cardLabel}>Today</Text>
+                                <Text style={styles.cardValue}>
+                                    {stats.energyStats.todayLevel ? ENERGY_LABELS[stats.energyStats.todayLevel].emoji : '—'}
+                                </Text>
+                                <Text style={styles.cardSubtext}>
+                                    {stats.energyStats.todayLevel ? ENERGY_LABELS[stats.energyStats.todayLevel].label : 'Not logged'}
+                                </Text>
+                            </View>
+                            <View style={styles.card}>
+                                <Text style={styles.cardLabel}>Most Common</Text>
+                                <Text style={styles.cardValue}>
+                                    {stats.energyStats.mostCommonLevel ? ENERGY_LABELS[stats.energyStats.mostCommonLevel].emoji : '—'}
+                                </Text>
+                                <Text style={styles.cardSubtext}>
+                                    {stats.energyStats.mostCommonLevel ? ENERGY_LABELS[stats.energyStats.mostCommonLevel].label : '—'}
+                                </Text>
+                            </View>
+                        </View>
+
+                        <View style={[styles.row, { marginTop: theme.spacing.m }]}>
+                            <StatCard label="7-Day Avg" value={stats.energyStats.avg7 !== null ? `${stats.energyStats.avg7}` : '—'} sub="Energy level" />
+                            <StatCard label="30-Day Avg" value={stats.energyStats.avg30 !== null ? `${stats.energyStats.avg30}` : '—'} sub="Energy level" />
+                        </View>
+
+                        {/* 7-day energy chart */}
+                        <View style={[styles.surface, { marginTop: theme.spacing.m }]}>
+                            <Text style={styles.dowSubtext}>Energy levels — last 7 days</Text>
+                            <View style={styles.energyChartRow}>
+                                {stats.energyStats.history7.map((entry, i) => {
+                                    const isToday = i === 6;
+                                    const lvl = entry.level;
+                                    const heightPct = lvl ? (lvl / 5) * 100 : 4;
+                                    const barColor = lvl && lvl >= 4 ? theme.colors.success : lvl && lvl === 3 ? accentColor : lvl ? theme.colors.danger : theme.colors.surface;
+                                    const dow = new Date(entry.date + 'T12:00:00').getDay();
+                                    const labels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+                                    return (
+                                        <View key={i} style={styles.energyBarWrapper}>
+                                            <View style={styles.energyBarTrack}>
+                                                <View style={[styles.energyBarFill, { height: `${heightPct}%`, backgroundColor: barColor }]} />
+                                            </View>
+                                            <Text style={[styles.energyBarLabel, isToday && { color: theme.colors.text }]}>{labels[dow]}</Text>
+                                            {lvl ? <Text style={styles.energyBarEmoji}>{ENERGY_LABELS[lvl].emoji}</Text> : null}
+                                        </View>
+                                    );
+                                })}
+                            </View>
+                        </View>
+
+                        {/* Volume by energy level */}
+                        <View style={[styles.surface, { marginTop: theme.spacing.m }]}>
+                            <Text style={styles.dowSubtext}>Average actions by energy level</Text>
+                            {stats.energyStats.volumeByLevel.filter(v => v.count > 0).map(v => (
+                                <View key={v.level} style={styles.energyVolumeRow}>
+                                    <Text style={styles.energyVolumeEmoji}>{ENERGY_LABELS[v.level].emoji}</Text>
+                                    <View style={styles.energyVolumeBar}>
+                                        <View style={[styles.energyVolumeBarFill, {
+                                            width: `${Math.min((v.avgVolume ?? 0) / Math.max(...stats.energyStats.volumeByLevel.map(x => x.avgVolume ?? 0), 1) * 100, 100)}%`,
+                                            backgroundColor: v.level >= 4 ? theme.colors.success : v.level === 3 ? accentColor : theme.colors.danger,
+                                        }]} />
+                                    </View>
+                                    <Text style={styles.energyVolumeCount}>{v.avgVolume ?? '—'}</Text>
+                                </View>
+                            ))}
+                            {stats.energyStats.energyVolumeCorrelation !== null && (
+                                <Text style={styles.correlationCaption}>
+                                    {stats.energyStats.energyVolumeCorrelation > 0.3
+                                        ? `📈 Higher energy correlates with more actions (r=${stats.energyStats.energyVolumeCorrelation})`
+                                        : stats.energyStats.energyVolumeCorrelation < -0.3
+                                            ? `📉 Energy and volume don't seem connected (r=${stats.energyStats.energyVolumeCorrelation})`
+                                            : `➡️ Energy and volume aren't strongly correlated (r=${stats.energyStats.energyVolumeCorrelation})`}
+                                </Text>
+                            )}
+                        </View>
+                    </View>
+                )}
 
                 {/* ── Correlation Matrix ── */}
                 {stats.correlationMatrix.names.length >= 2 && (
@@ -1056,6 +1142,74 @@ const styles = StyleSheet.create({
         fontSize: theme.fontSizes.m,
         color: theme.colors.secondary,
         fontStyle: 'italic',
+    },
+
+    // Energy stats
+    energyChartRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        height: 80,
+        gap: 4,
+    },
+    energyBarWrapper: {
+        flex: 1,
+        alignItems: 'center',
+        height: '100%',
+    },
+    energyBarTrack: {
+        flex: 1,
+        width: '100%',
+        backgroundColor: theme.colors.background,
+        borderRadius: 4,
+        overflow: 'hidden',
+        justifyContent: 'flex-end',
+    },
+    energyBarFill: {
+        width: '100%',
+        borderRadius: 4,
+    },
+    energyBarLabel: {
+        fontSize: 9,
+        color: theme.colors.secondary,
+        marginTop: 3,
+    },
+    energyBarEmoji: {
+        fontSize: 10,
+        marginTop: 1,
+    },
+    energyVolumeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing.s,
+        marginBottom: theme.spacing.s,
+    },
+    energyVolumeEmoji: {
+        fontSize: 18,
+        width: 24,
+    },
+    energyVolumeBar: {
+        flex: 1,
+        height: 8,
+        backgroundColor: theme.colors.background,
+        borderRadius: 4,
+        overflow: 'hidden',
+    },
+    energyVolumeBarFill: {
+        height: '100%',
+        borderRadius: 4,
+    },
+    energyVolumeCount: {
+        fontSize: theme.fontSizes.s,
+        color: theme.colors.secondary,
+        width: 28,
+        textAlign: 'right',
+        fontWeight: '600',
+    },
+    correlationCaption: {
+        fontSize: 11,
+        color: theme.colors.secondary,
+        marginTop: theme.spacing.m,
+        lineHeight: 16,
     },
 
     // Share button in header

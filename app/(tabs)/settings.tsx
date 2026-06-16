@@ -382,6 +382,21 @@ export default function SettingsScreen() {
                         />
                     </View>
 
+                    {/* Grid Size */}
+                    <View style={[styles.card, { marginBottom: theme.spacing.m }]}>
+                        <SettingRow
+                            label="Home Grid Size"
+                            sub="Number of tracker columns on the home screen"
+                            right={null}
+                        />
+                        <SegmentedControl
+                            options={[1, 2, 3] as any}
+                            value={preferences.gridColumns as any}
+                            onChange={v => updatePreference('gridColumns', Number(v) as 1 | 2 | 3)}
+                            labels={{ '1': '1 Column', '2': '2 Columns', '3': '3 Columns' } as any}
+                        />
+                    </View>
+
                     {/* Week Start Day */}
                     <View style={styles.card}>
                         <SettingRow

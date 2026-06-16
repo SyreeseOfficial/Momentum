@@ -1,4 +1,4 @@
-import { Tracker, HistoryRecord } from '../types';
+import { Tracker, HistoryRecord, EnergyEntry, EnergyLevel } from '../types';
 import { getTodayString } from './dateLogic';
 
 export const calculateTodayVolume = (trackers: Tracker[]): number => {
@@ -386,5 +386,83 @@ export const calculateMilestones = (
         daysToStreak: nextStreakMilestone ? nextStreakMilestone - currentStreak : 0,
         volumeMilestone: nextVolumeMilestone,
         actionsToVolume: nextVolumeMilestone ? nextVolumeMilestone - allTimeVolume : 0,
+    };
+};
+
+export const calculateEnergyStats = (
+    energyLog: EnergyEntry[],
+    history: HistoryRecord[],
+    trackers: Tracker[]
+) => {
+    const today = getTodayString();
+    const todayEntry = energyLog.find(e => e.date === today);
+
+    const buildDates = (n: number) => Array.from({ length: n }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (n - 1 - i));
+        return d.toISOString().split('T')[0];
+    });
+
+    const last7 = buildDates(7);
+    const last30 = buildDates(30);
+
+    const getLevel = (date: string): EnergyLevel | null =>
+        energyLog.find(e => e.date === date)?.level ?? null;
+
+    const avgOf = (dates: string[]) => {
+        const vals = dates.map(getLevel).filter(Boolean) as number[];
+        return vals.length > 0 ? +(vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(1) : null;
+    };
+
+    const history7 = last7.map(date => ({ date, level: getLevel(date) }));
+
+    const entries30 = last30.map(date => ({ date, level: getLevel(date) })).filter(e => e.level !== null) as { date: string; level: EnergyLevel }[];
+
+    const levelCounts = ([1, 2, 3, 4, 5] as EnergyLevel[]).map(l => ({
+        level: l,
+        count: entries30.filter(e => e.level === l).length,
+    }));
+    const mostCommonLevel = entries30.length > 0
+        ? levelCounts.reduce((best, l) => l.count > best.count ? l : best).level
+        : null;
+
+    // Energy vs volume correlation
+    const paired = entries30.map(e => {
+        const vol = e.date === today
+            ? trackers.reduce((s, t) => s + t.count, 0)
+            : history.find(h => h.date === e.date)?.totalVolume ?? null;
+        return vol !== null ? { energy: e.level, volume: vol } : null;
+    }).filter(Boolean) as { energy: number; volume: number }[];
+
+    let energyVolumeCorrelation: number | null = null;
+    if (paired.length >= 3) {
+        const n = paired.length;
+        const mE = paired.reduce((s, p) => s + p.energy, 0) / n;
+        const mV = paired.reduce((s, p) => s + p.volume, 0) / n;
+        const num = paired.reduce((s, p) => s + (p.energy - mE) * (p.volume - mV), 0);
+        const dE = Math.sqrt(paired.reduce((s, p) => s + Math.pow(p.energy - mE, 2), 0));
+        const dV = Math.sqrt(paired.reduce((s, p) => s + Math.pow(p.volume - mV, 2), 0));
+        if (dE > 0 && dV > 0) energyVolumeCorrelation = Math.round((num / (dE * dV)) * 100) / 100;
+    }
+
+    // Volume by energy level (average volume on each energy level day)
+    const volumeByLevel = ([1, 2, 3, 4, 5] as EnergyLevel[]).map(level => {
+        const dayVols = paired.filter(p => p.energy === level).map(p => p.volume);
+        return {
+            level,
+            avgVolume: dayVols.length > 0 ? Math.round(dayVols.reduce((s, v) => s + v, 0) / dayVols.length) : null,
+            count: dayVols.length,
+        };
+    });
+
+    return {
+        todayLevel: todayEntry?.level ?? null,
+        avg7: avgOf(last7),
+        avg30: avgOf(last30),
+        history7,
+        mostCommonLevel,
+        energyVolumeCorrelation,
+        volumeByLevel,
+        totalLogged: entries30.length,
     };
 };

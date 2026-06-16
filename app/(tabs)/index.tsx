@@ -22,6 +22,7 @@ export default function HomeScreen() {
     const { trackers, history, incrementTracker, decrementTracker, unlockedAchievements, unlockAchievement, archiveTracker, deleteTracker, preferences, logEnergy, todayEnergy } = useTrackers();
     const accentColor = useAccentColor();
     const isWeekend = isWeekendDay();
+    const { gridColumns } = preferences;
 
     const sortedActiveTrackers = useMemo(() => {
         const filtered = trackers.filter(t => !t.isArchived);
@@ -119,35 +120,41 @@ export default function HomeScreen() {
             </View>
 
             <FlatList
+                key={gridColumns}
                 data={sortedActiveTrackers}
                 keyExtractor={(item) => item.id}
+                numColumns={gridColumns}
+                columnWrapperStyle={gridColumns > 1 ? styles.columnWrapper : undefined}
                 renderItem={({ item }) => {
                     const effectiveGoal = getEffectiveGoal(item.dailyGoal);
                     return (
-                        <TrackerCard
-                            name={item.name}
-                            count={item.count}
-                            goal={effectiveGoal}
-                            emoji={item.emoji}
-                            onIncrement={() => {
-                                incrementTracker(item.id);
-                                const updated = sortedActiveTrackers.map(t =>
-                                    t.id === item.id ? { ...t, count: t.count + 1 } : t
-                                );
-                                const allMet = updated.filter(t => t.isActive).every(t =>
-                                    t.count >= getEffectiveGoal(t.dailyGoal)
-                                );
-                                if (allMet) setShowCelebration(true);
-                            }}
-                            onDecrement={() => decrementTracker(item.id)}
-                            onArchive={() => archiveTracker(item.id)}
-                            onDelete={() =>
-                                Alert.alert('Delete Tracker', `Delete "${item.name}"? This cannot be undone.`, [
-                                    { text: 'Cancel', style: 'cancel' },
-                                    { text: 'Delete', style: 'destructive', onPress: () => deleteTracker(item.id) },
-                                ])
-                            }
-                        />
+                        <View style={gridColumns > 1 ? { flex: 1 } : undefined}>
+                            <TrackerCard
+                                name={item.name}
+                                count={item.count}
+                                goal={effectiveGoal}
+                                emoji={item.emoji}
+                                onIncrement={() => {
+                                    incrementTracker(item.id);
+                                    const updated = sortedActiveTrackers.map(t =>
+                                        t.id === item.id ? { ...t, count: t.count + 1 } : t
+                                    );
+                                    const allMet = updated.filter(t => t.isActive).every(t =>
+                                        t.count >= getEffectiveGoal(t.dailyGoal)
+                                    );
+                                    if (allMet) setShowCelebration(true);
+                                }}
+                                onDecrement={() => decrementTracker(item.id)}
+                                onEdit={() => router.push({ pathname: '/edit-tracker', params: { id: item.id } })}
+                                onArchive={() => archiveTracker(item.id)}
+                                onDelete={() =>
+                                    Alert.alert('Delete Tracker', `Delete "${item.name}"? This cannot be undone.`, [
+                                        { text: 'Cancel', style: 'cancel' },
+                                        { text: 'Delete', style: 'destructive', onPress: () => deleteTracker(item.id) },
+                                    ])
+                                }
+                            />
+                        </View>
                     );
                 }}
                 contentContainerStyle={styles.listContent}
@@ -263,6 +270,9 @@ const styles = StyleSheet.create({
         fontSize: theme.fontSizes.xl,
         fontWeight: 'bold',
         color: theme.colors.text,
+    },
+    columnWrapper: {
+        gap: theme.spacing.s,
     },
     energyRow: {
         paddingHorizontal: theme.spacing.m,
