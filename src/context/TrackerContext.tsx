@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Tracker, HistoryLog, HistoryRecord, AchievementId, AppPreferences, DEFAULT_PREFERENCES } from '../types';
+import { Tracker, HistoryLog, HistoryRecord, AchievementId, AppPreferences, DEFAULT_PREFERENCES, EnergyLevel, EnergyLog } from '../types';
 import { saveData, loadData, clearAllData as clearStorage } from '../utils/storage';
 import { checkAndResetDailyCounts } from '../utils/dateLogic';
 import {
@@ -31,6 +31,9 @@ interface TrackerContextType {
     preferences: AppPreferences;
     updatePreference: <K extends keyof AppPreferences>(key: K, value: AppPreferences[K]) => void;
     factoryReset: () => Promise<void>;
+    energyLog: EnergyLog;
+    logEnergy: (level: EnergyLevel) => void;
+    todayEnergy: EnergyLevel | null;
 }
 
 const TrackerContext = createContext<TrackerContextType | undefined>(undefined);
@@ -55,6 +58,7 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
     const [notificationTime, setNotificationTime] = useState<Date | null>(null);
     const [unlockedAchievements, setUnlockedAchievements] = useState<AchievementId[]>([]);
     const [preferences, setPreferences] = useState<AppPreferences>(DEFAULT_PREFERENCES);
+    const [energyLog, setEnergyLog] = useState<EnergyLog>([]);
 
     // Load data on mount
     useEffect(() => {
@@ -67,6 +71,7 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
                 const loadedNotificationTime = await loadData<string>('notificationTime');
                 const loadedAchievements = await loadData<AchievementId[]>('achievements') || [];
                 const loadedPreferences = await loadData<AppPreferences>('preferences') || DEFAULT_PREFERENCES;
+                const loadedEnergyLog = await loadData<EnergyLog>('energyLog') || [];
 
                 setNotificationEnabled(loadedNotificationEnabled);
                 if (loadedNotificationTime) {
@@ -74,6 +79,7 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
                 }
                 setUnlockedAchievements(loadedAchievements);
                 setPreferences(loadedPreferences);
+                setEnergyLog(loadedEnergyLog);
 
                 const result = checkAndResetDailyCounts(loadedTrackers, loadedDate, loadedHistory, loadedPreferences.dayResetHour);
 
@@ -244,12 +250,28 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
             setNotificationTime(null);
             setUnlockedAchievements([]);
             setPreferences(DEFAULT_PREFERENCES);
+            setEnergyLog([]);
             await cancelAllNotifications();
             saveData('lastActiveDate', '');
         } catch (e) {
             console.error('Failed to factory reset', e);
         }
     };
+
+    const logEnergy = (level: EnergyLevel) => {
+        const today = new Date().toISOString().split('T')[0];
+        setEnergyLog(prev => {
+            const filtered = prev.filter(e => e.date !== today);
+            const updated = [...filtered, { date: today, level }];
+            saveData('energyLog', updated);
+            return updated;
+        });
+    };
+
+    const todayEnergy: EnergyLevel | null = (() => {
+        const today = new Date().toISOString().split('T')[0];
+        return energyLog.find(e => e.date === today)?.level ?? null;
+    })();
 
     return (
         <TrackerContext.Provider
@@ -276,6 +298,9 @@ export const TrackerProvider = ({ children }: TrackerProviderProps) => {
                 preferences,
                 updatePreference,
                 factoryReset,
+                energyLog,
+                logEnergy,
+                todayEnergy,
             }}
         >
             {children}

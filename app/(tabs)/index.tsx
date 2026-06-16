@@ -15,11 +15,11 @@ import { detectNewAchievements, ACHIEVEMENTS } from '../../src/utils/achievement
 import { calculateTodayVolume, calculateConsistencyScore, calculateGoalCompletionRate } from '../../src/utils/statsLogic';
 import { isWeekendDay } from '../../src/utils/dateLogic';
 import { useAccentColor } from '../../src/hooks/useAccentColor';
-import { Achievement } from '../../src/types';
+import { Achievement, EnergyLevel, ENERGY_LABELS } from '../../src/types';
 
 export default function HomeScreen() {
     const router = useRouter();
-    const { trackers, history, incrementTracker, decrementTracker, unlockedAchievements, unlockAchievement, archiveTracker, deleteTracker, preferences } = useTrackers();
+    const { trackers, history, incrementTracker, decrementTracker, unlockedAchievements, unlockAchievement, archiveTracker, deleteTracker, preferences, logEnergy, todayEnergy } = useTrackers();
     const accentColor = useAccentColor();
     const isWeekend = isWeekendDay();
 
@@ -98,6 +98,24 @@ export default function HomeScreen() {
                     </View>
                 </View>
                 <Text style={styles.title}>Dailies</Text>
+            </View>
+
+            {/* Energy Logger */}
+            <View style={styles.energyRow}>
+                <Text style={styles.energyLabel}>
+                    {todayEnergy ? ENERGY_LABELS[todayEnergy].label : 'How are you feeling?'}
+                </Text>
+                <View style={styles.energyButtons}>
+                    {([1, 2, 3, 4, 5] as EnergyLevel[]).map(level => (
+                        <TouchableOpacity
+                            key={level}
+                            style={[styles.energyBtn, todayEnergy === level && { backgroundColor: accentColor + '30', borderColor: accentColor }]}
+                            onPress={() => logEnergy(level)}
+                        >
+                            <Text style={styles.energyEmoji}>{ENERGY_LABELS[level].emoji}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
             </View>
 
             <FlatList
@@ -245,5 +263,36 @@ const styles = StyleSheet.create({
         fontSize: theme.fontSizes.xl,
         fontWeight: 'bold',
         color: theme.colors.text,
+    },
+    energyRow: {
+        paddingHorizontal: theme.spacing.m,
+        paddingVertical: theme.spacing.s,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.surface,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    energyLabel: {
+        fontSize: theme.fontSizes.s,
+        color: theme.colors.secondary,
+        flex: 1,
+    },
+    energyButtons: {
+        flexDirection: 'row',
+        gap: 6,
+    },
+    energyBtn: {
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.surface,
+        borderWidth: 1,
+        borderColor: 'transparent',
+    },
+    energyEmoji: {
+        fontSize: 20,
     },
 });

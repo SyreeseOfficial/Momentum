@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Share } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +27,7 @@ import {
     calculateVarianceScore,
     calculateTrackerTrend,
     calculateMilestones,
+    calculateCorrelationMatrix,
 } from '../../src/utils/statsLogic';
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
@@ -125,6 +126,53 @@ function MiniBarChart({ data, goal, accentColor = theme.colors.accent }: { data:
     );
 }
 
+function CorrelationMatrix({ matrix, accentColor }: { matrix: { names: string[]; matrix: number[][] }; accentColor: string }) {
+    const { names, matrix: m } = matrix;
+    const cellColor = (val: number) => {
+        if (val >= 0.7) return '#166534';
+        if (val >= 0.4) return '#15803d';
+        if (val >= 0.1) return '#4ade80' + '50';
+        if (val <= -0.4) return '#991b1b';
+        if (val <= -0.1) return '#ef4444' + '50';
+        return theme.colors.background;
+    };
+
+    const shortName = (n: string) => n.length > 7 ? n.slice(0, 6) + '…' : n;
+
+    return (
+        <View>
+            {/* Column headers */}
+            <View style={styles.corrRow}>
+                <View style={styles.corrHeaderCell} />
+                {names.map(n => (
+                    <View key={n} style={styles.corrHeaderCell}>
+                        <Text style={styles.corrHeaderText}>{shortName(n)}</Text>
+                    </View>
+                ))}
+            </View>
+            {m.map((row, i) => (
+                <View key={names[i]} style={styles.corrRow}>
+                    <View style={styles.corrHeaderCell}>
+                        <Text style={styles.corrHeaderText}>{shortName(names[i])}</Text>
+                    </View>
+                    {row.map((val, j) => (
+                        <View key={j} style={[styles.corrCell, { backgroundColor: cellColor(val) }]}>
+                            <Text style={styles.corrCellText}>
+                                {i === j ? '—' : val.toFixed(2).replace('0.', '.').replace('-0.', '-.').replace('1.00', '1')}
+                            </Text>
+                        </View>
+                    ))}
+                </View>
+            ))}
+            <View style={styles.corrLegend}>
+                <View style={[styles.corrLegendDot, { backgroundColor: '#15803d' }]} /><Text style={styles.corrLegendText}>Strong positive</Text>
+                <View style={[styles.corrLegendDot, { backgroundColor: '#ef4444' + '80' }]} /><Text style={styles.corrLegendText}>Negative</Text>
+                <View style={[styles.corrLegendDot, { backgroundColor: theme.colors.background }]} /><Text style={styles.corrLegendText}>No relation</Text>
+            </View>
+        </View>
+    );
+}
+
 function TimelineView({ trackerName, trackers, history, accentColor }: {
     trackerName: string;
     trackers: any[];
@@ -210,6 +258,7 @@ export default function StatsScreen() {
     const { currentStreak, bestStreak } = useStreaks();
     const accentColor = useAccentColor();
     const [timelineTracker, setTimelineTracker] = useState<string | null>(null);
+    const [showShareCard, setShowShareCard] = useState(false);
 
     const stats = useMemo(() => {
         const todayVolume = calculateTodayVolume(trackers);
@@ -229,6 +278,7 @@ export default function StatsScreen() {
         const perTrackerHistory = calculatePerTrackerHistory(trackers, history, 7);
         const varianceScore = calculateVarianceScore(trackers, history, 30);
         const milestones = calculateMilestones(trackers, history, currentStreak);
+        const correlationMatrix = calculateCorrelationMatrix(trackers, history, 30);
 
         return {
             todayVolume,
@@ -248,6 +298,7 @@ export default function StatsScreen() {
             perTrackerHistory,
             varianceScore,
             milestones,
+            correlationMatrix,
         };
     }, [trackers, history, currentStreak, preferences.heatmapWeeks]);
 
@@ -270,10 +321,30 @@ export default function StatsScreen() {
             ? `+${stats.weekComparison.change}% vs last week`
             : `${stats.weekComparison.change}% vs last week`;
 
+    const handleShare = async () => {
+        const allTimeVolume = history.reduce((s, r) => s + r.totalVolume, 0) + stats.todayVolume;
+        const message = [
+            '📊 My Momentum Stats',
+            '━━━━━━━━━━━━━━━━━',
+            `🔥 Streak: ${currentStreak} day${currentStreak !== 1 ? 's' : ''}`,
+            `🏆 Best Streak: ${bestStreak} days`,
+            `⚡ 7-Day Volume: ${stats.sevenDayVolume} actions`,
+            `🎯 Goal Rate (30d): ${stats.goalCompletionRate !== null ? `${stats.goalCompletionRate}%` : 'N/A'}`,
+            `💯 Consistency Score: ${stats.consistencyScore}/100`,
+            `📈 Total Actions: ${allTimeVolume}`,
+            '━━━━━━━━━━━━━━━━━',
+            'Track habits with Momentum 🚀',
+        ].join('\n');
+        await Share.share({ message });
+    };
+
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Stats</Text>
+                <TouchableOpacity onPress={() => setShowShareCard(true)} style={styles.shareBtn}>
+                    <Ionicons name="share-outline" size={22} color={accentColor} />
+                </TouchableOpacity>
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>
@@ -535,7 +606,65 @@ export default function StatsScreen() {
                     </View>
                 </View>
 
+                {/* ── Correlation Matrix ── */}
+                {stats.correlationMatrix.names.length >= 2 && (
+                    <View>
+                        <SectionTitle title="Habit Correlation" />
+                        <View style={styles.surface}>
+                            <Text style={styles.correlationDesc}>
+                                How often habits happen on the same days (30 days). Green = reinforce each other, Red = opposite patterns.
+                            </Text>
+                            <CorrelationMatrix matrix={stats.correlationMatrix} accentColor={accentColor} />
+                        </View>
+                    </View>
+                )}
+
             </ScrollView>
+
+            {/* ── Share Card Modal ── */}
+            <Modal visible={showShareCard} animationType="slide" transparent>
+                <View style={styles.shareOverlay}>
+                    <View style={styles.shareCard}>
+                        <View style={styles.shareCardHeader}>
+                            <Text style={styles.shareCardTitle}>📊 My Momentum</Text>
+                            <TouchableOpacity onPress={() => setShowShareCard(false)}>
+                                <Ionicons name="close" size={24} color={theme.colors.secondary} />
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.shareCardGrid}>
+                            <View style={styles.shareCardStat}>
+                                <Text style={[styles.shareCardValue, { color: accentColor }]}>{currentStreak}</Text>
+                                <Text style={styles.shareCardLabel}>🔥 Streak</Text>
+                            </View>
+                            <View style={styles.shareCardStat}>
+                                <Text style={[styles.shareCardValue, { color: theme.colors.success }]}>{bestStreak}</Text>
+                                <Text style={styles.shareCardLabel}>🏆 Best</Text>
+                            </View>
+                            <View style={styles.shareCardStat}>
+                                <Text style={[styles.shareCardValue, { color: accentColor }]}>{stats.sevenDayVolume}</Text>
+                                <Text style={styles.shareCardLabel}>⚡ 7-Day</Text>
+                            </View>
+                            <View style={styles.shareCardStat}>
+                                <Text style={[styles.shareCardValue, { color: theme.colors.success }]}>{stats.consistencyScore}</Text>
+                                <Text style={styles.shareCardLabel}>💯 Score</Text>
+                            </View>
+                            <View style={styles.shareCardStat}>
+                                <Text style={[styles.shareCardValue, { color: accentColor }]}>{stats.goalCompletionRate !== null ? `${stats.goalCompletionRate}%` : '—'}</Text>
+                                <Text style={styles.shareCardLabel}>🎯 Goal Rate</Text>
+                            </View>
+                            <View style={styles.shareCardStat}>
+                                <Text style={[styles.shareCardValue, { color: accentColor }]}>{stats.thirtyDayVolume}</Text>
+                                <Text style={styles.shareCardLabel}>📈 30-Day</Text>
+                            </View>
+                        </View>
+                        <Text style={styles.shareCardTagline}>Built with Momentum</Text>
+                        <TouchableOpacity style={[styles.shareCardBtn, { backgroundColor: accentColor }]} onPress={handleShare}>
+                            <Ionicons name="share-outline" size={18} color="#fff" />
+                            <Text style={styles.shareCardBtnText}>Share</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
 
             {/* ── Tracker Timeline Modal ── */}
             <Modal visible={!!timelineTracker} animationType="slide">
@@ -573,6 +702,9 @@ const styles = StyleSheet.create({
         paddingVertical: theme.spacing.m,
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.surface,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     headerTitle: {
         fontSize: theme.fontSizes.xl,
@@ -924,6 +1056,135 @@ const styles = StyleSheet.create({
         fontSize: theme.fontSizes.m,
         color: theme.colors.secondary,
         fontStyle: 'italic',
+    },
+
+    // Share button in header
+    shareBtn: {
+        padding: 4,
+    },
+
+    // Correlation matrix
+    correlationDesc: {
+        fontSize: 11,
+        color: theme.colors.secondary,
+        marginBottom: theme.spacing.m,
+        lineHeight: 16,
+    },
+    corrRow: {
+        flexDirection: 'row',
+        marginBottom: 3,
+    },
+    corrHeaderCell: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 4,
+    },
+    corrHeaderText: {
+        fontSize: 10,
+        color: theme.colors.secondary,
+        textAlign: 'center',
+    },
+    corrCell: {
+        flex: 1,
+        aspectRatio: 1.4,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 4,
+        margin: 1,
+    },
+    corrCellText: {
+        fontSize: 10,
+        fontWeight: '600',
+        color: theme.colors.text,
+    },
+    corrLegend: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: theme.spacing.m,
+        flexWrap: 'wrap',
+    },
+    corrLegendDot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        borderWidth: 1,
+        borderColor: '#333',
+    },
+    corrLegendText: {
+        fontSize: 10,
+        color: theme.colors.secondary,
+        marginRight: 8,
+    },
+
+    // Share card modal
+    shareOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        paddingBottom: 40,
+    },
+    shareCard: {
+        backgroundColor: theme.colors.surface,
+        borderRadius: 20,
+        padding: theme.spacing.l,
+        width: '92%',
+    },
+    shareCardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: theme.spacing.l,
+    },
+    shareCardTitle: {
+        fontSize: theme.fontSizes.xl,
+        fontWeight: 'bold',
+        color: theme.colors.text,
+    },
+    shareCardGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: theme.spacing.s,
+        marginBottom: theme.spacing.l,
+    },
+    shareCardStat: {
+        flex: 1,
+        minWidth: '28%',
+        backgroundColor: theme.colors.background,
+        borderRadius: 12,
+        padding: theme.spacing.m,
+        alignItems: 'center',
+    },
+    shareCardValue: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        marginBottom: 4,
+    },
+    shareCardLabel: {
+        fontSize: 11,
+        color: theme.colors.secondary,
+        textAlign: 'center',
+    },
+    shareCardTagline: {
+        fontSize: theme.fontSizes.s,
+        color: theme.colors.secondary,
+        textAlign: 'center',
+        marginBottom: theme.spacing.m,
+    },
+    shareCardBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: theme.spacing.s,
+        padding: theme.spacing.m,
+        borderRadius: 12,
+    },
+    shareCardBtnText: {
+        color: '#fff',
+        fontSize: theme.fontSizes.m,
+        fontWeight: 'bold',
     },
 
     // Tracker chart header

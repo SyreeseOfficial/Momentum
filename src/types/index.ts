@@ -61,6 +61,23 @@ export interface AppPreferences {
     cardStyle: 'detailed' | 'minimal';
 }
 
+export type EnergyLevel = 1 | 2 | 3 | 4 | 5;
+
+export interface EnergyEntry {
+    date: string;
+    level: EnergyLevel;
+}
+
+export type EnergyLog = EnergyEntry[];
+
+export const ENERGY_LABELS: Record<EnergyLevel, { emoji: string; label: string }> = {
+    1: { emoji: '😴', label: 'Exhausted' },
+    2: { emoji: '😔', label: 'Low' },
+    3: { emoji: '😐', label: 'Okay' },
+    4: { emoji: '😊', label: 'Good' },
+    5: { emoji: '🔥', label: 'Fired up' },
+};
+
 export const DEFAULT_PREFERENCES: AppPreferences = {
     weekStartDay: 'sunday',
     sortPreference: 'custom',

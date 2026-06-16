@@ -322,6 +322,52 @@ export const calculateVarianceScore = (
     return { overall, perTracker };
 };
 
+export const calculateCorrelationMatrix = (
+    trackers: Tracker[],
+    history: HistoryRecord[],
+    days = 30
+): { names: string[]; matrix: number[][] } => {
+    const active = trackers.filter(t => t.isActive && !t.isArchived).slice(0, 6);
+    if (active.length < 2) return { names: [], matrix: [] };
+
+    const today = getTodayString();
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - (days - 1));
+    const splitDate = cutoff.toISOString().split('T')[0];
+    const relevantHistory = history.filter(r => r.date >= splitDate && r.date < today);
+
+    const trackerCounts = active.map(tracker => {
+        const counts: number[] = [];
+        for (let i = days - 1; i >= 1; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            const record = relevantHistory.find(r => r.date === dateStr);
+            const detail = record?.details.find(d => d.trackerName === tracker.name);
+            counts.push(detail?.count ?? 0);
+        }
+        counts.push(tracker.count);
+        return counts;
+    });
+
+    const pearson = (a: number[], b: number[]): number => {
+        const n = a.length;
+        const meanA = a.reduce((s, v) => s + v, 0) / n;
+        const meanB = b.reduce((s, v) => s + v, 0) / n;
+        const num = a.reduce((s, v, i) => s + (v - meanA) * (b[i] - meanB), 0);
+        const denA = Math.sqrt(a.reduce((s, v) => s + Math.pow(v - meanA, 2), 0));
+        const denB = Math.sqrt(b.reduce((s, v) => s + Math.pow(v - meanB, 2), 0));
+        if (denA === 0 || denB === 0) return 0;
+        return Math.round((num / (denA * denB)) * 100) / 100;
+    };
+
+    const matrix = trackerCounts.map((a, i) =>
+        trackerCounts.map((b, j) => i === j ? 1 : pearson(a, b))
+    );
+
+    return { names: active.map(t => t.name), matrix };
+};
+
 export const calculateMilestones = (
     trackers: Tracker[],
     history: HistoryRecord[],
