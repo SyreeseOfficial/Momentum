@@ -50,10 +50,15 @@ export interface AchievementsState {
 export interface AppPreferences {
     weekStartDay: 'sunday' | 'monday';
     sortPreference: 'custom' | 'alphabetical' | 'goalProximity' | 'frequency';
-    dayResetHour: number; // 0-23, default 0 (midnight)
+    dayResetHour: number;
     heatmapWeeks: 4 | 8 | 12 | 24;
     weekendGoalEnabled: boolean;
-    weekendGoalMultiplier: number; // 0.25, 0.5, 0.75, 1.0
+    weekendGoalMultiplier: number;
+    // Phase 2
+    accentColor: string;
+    showEmojiOnCard: boolean;
+    showGoalOnCard: boolean;
+    cardStyle: 'detailed' | 'minimal';
 }
 
 export const DEFAULT_PREFERENCES: AppPreferences = {
@@ -63,4 +68,8 @@ export const DEFAULT_PREFERENCES: AppPreferences = {
     heatmapWeeks: 12,
     weekendGoalEnabled: false,
     weekendGoalMultiplier: 0.5,
+    accentColor: '#6366F1',
+    showEmojiOnCard: true,
+    showGoalOnCard: true,
+    cardStyle: 'detailed',
 };

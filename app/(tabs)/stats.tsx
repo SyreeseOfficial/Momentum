@@ -1,10 +1,12 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { format, parseISO } from 'date-fns';
 import { useTrackers } from '../../src/context/TrackerContext';
 import { useStreaks } from '../../src/hooks/useStreaks';
+import { useAccentColor } from '../../src/hooks/useAccentColor';
 import { theme } from '../../src/constants/theme';
 import {
     calculateTodayVolume,
@@ -22,6 +24,9 @@ import {
     calculateWeekComparison,
     calculateActivityHeatmap,
     calculatePerTrackerHistory,
+    calculateVarianceScore,
+    calculateTrackerTrend,
+    calculateMilestones,
 } from '../../src/utils/statsLogic';
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
@@ -93,7 +98,7 @@ function Heatmap({ cells }: { cells: { date: string; volume: number; intensity: 
     );
 }
 
-function MiniBarChart({ data, goal }: { data: { date: string; count: number }[]; goal: number }) {
+function MiniBarChart({ data, goal, accentColor = theme.colors.accent }: { data: { date: string; count: number }[]; goal: number; accentColor?: string }) {
     const max = Math.max(...data.map(d => d.count), goal, 1);
     const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -103,17 +108,12 @@ function MiniBarChart({ data, goal }: { data: { date: string; count: number }[];
                 const heightPct = d.count / max;
                 const isToday = i === data.length - 1;
                 const metGoal = d.count >= goal;
-                const barColor = metGoal ? theme.colors.success : isToday ? theme.colors.accent : theme.colors.secondary;
+                const barColor = metGoal ? theme.colors.success : isToday ? accentColor : theme.colors.secondary;
                 const dow = new Date(d.date + 'T12:00:00').getDay();
                 return (
                     <View key={i} style={styles.miniBarWrapper}>
                         <View style={styles.miniBarTrack}>
-                            <View
-                                style={[
-                                    styles.miniBarFill,
-                                    { height: `${Math.max(heightPct * 100, 4)}%`, backgroundColor: barColor }
-                                ]}
-                            />
+                            <View style={[styles.miniBarFill, { height: `${Math.max(heightPct * 100, 4)}%`, backgroundColor: barColor }]} />
                         </View>
                         <Text style={[styles.miniBarLabel, isToday ? { color: theme.colors.text } : null]}>
                             {dayLabels[dow]}
@@ -122,6 +122,57 @@ function MiniBarChart({ data, goal }: { data: { date: string; count: number }[];
                 );
             })}
         </View>
+    );
+}
+
+function TimelineView({ trackerName, trackers, history, accentColor }: {
+    trackerName: string;
+    trackers: any[];
+    history: any[];
+    accentColor: string;
+}) {
+    const data30 = useMemo(() => calculatePerTrackerHistory(
+        trackers.filter(t => t.name === trackerName),
+        history,
+        30
+    ), [trackerName, trackers, history]);
+
+    const tracker = trackers.find(t => t.name === trackerName);
+    const goal = tracker?.dailyGoal ?? 1;
+    const trackerData = data30[0]?.data ?? [];
+    const trend = calculateTrackerTrend(trackerData.map(d => d.count));
+    const avg = trackerData.length > 0
+        ? Math.round(trackerData.reduce((s, d) => s + d.count, 0) / trackerData.length)
+        : 0;
+    const best = Math.max(...trackerData.map(d => d.count), 0);
+    const goalDays = trackerData.filter(d => d.count >= goal).length;
+
+    const trendColor = trend === 'up' ? theme.colors.success : trend === 'down' ? theme.colors.danger : theme.colors.secondary;
+    const trendLabel = trend === 'up' ? 'Trending Up ↑' : trend === 'down' ? 'Trending Down ↓' : 'Stable →';
+
+    return (
+        <ScrollView contentContainerStyle={styles.timelineContent}>
+            <View style={styles.timelineStats}>
+                <View style={styles.timelineStatItem}>
+                    <Text style={[styles.timelineStatValue, { color: accentColor }]}>{avg}</Text>
+                    <Text style={styles.timelineStatLabel}>Daily avg</Text>
+                </View>
+                <View style={styles.timelineStatItem}>
+                    <Text style={[styles.timelineStatValue, { color: theme.colors.success }]}>{best}</Text>
+                    <Text style={styles.timelineStatLabel}>Best day</Text>
+                </View>
+                <View style={styles.timelineStatItem}>
+                    <Text style={[styles.timelineStatValue, { color: accentColor }]}>{goalDays}</Text>
+                    <Text style={styles.timelineStatLabel}>Goal days</Text>
+                </View>
+                <View style={styles.timelineStatItem}>
+                    <Text style={[styles.timelineStatValue, { color: trendColor }]}>{trendLabel}</Text>
+                    <Text style={styles.timelineStatLabel}>Trend</Text>
+                </View>
+            </View>
+            <Text style={styles.timelineChartLabel}>Last 30 days</Text>
+            <MiniBarChart data={trackerData} goal={goal} accentColor={accentColor} />
+        </ScrollView>
     );
 }
 
@@ -157,6 +208,8 @@ export default function StatsScreen() {
     const insets = useSafeAreaInsets();
     const { trackers, history, preferences, updatePreference } = useTrackers();
     const { currentStreak, bestStreak } = useStreaks();
+    const accentColor = useAccentColor();
+    const [timelineTracker, setTimelineTracker] = useState<string | null>(null);
 
     const stats = useMemo(() => {
         const todayVolume = calculateTodayVolume(trackers);
@@ -174,6 +227,8 @@ export default function StatsScreen() {
         const weekComparison = calculateWeekComparison(trackers, history);
         const heatmapCells = calculateActivityHeatmap(trackers, history, preferences.heatmapWeeks);
         const perTrackerHistory = calculatePerTrackerHistory(trackers, history, 7);
+        const varianceScore = calculateVarianceScore(trackers, history, 30);
+        const milestones = calculateMilestones(trackers, history, currentStreak);
 
         return {
             todayVolume,
@@ -191,6 +246,8 @@ export default function StatsScreen() {
             weekComparison,
             heatmapCells,
             perTrackerHistory,
+            varianceScore,
+            milestones,
         };
     }, [trackers, history, currentStreak, preferences.heatmapWeeks]);
 
@@ -356,6 +413,67 @@ export default function StatsScreen() {
                     </View>
                 </View>
 
+                {/* ── Milestone Countdowns ── */}
+                {(stats.milestones.streakMilestone || stats.milestones.volumeMilestone) && (
+                    <View>
+                        <SectionTitle title="Next Milestones" />
+                        <View style={styles.row}>
+                            {stats.milestones.streakMilestone && (
+                                <View style={styles.card}>
+                                    <Text style={styles.cardLabel}>Streak</Text>
+                                    <Text style={[styles.cardValue, { color: accentColor }]}>
+                                        {stats.milestones.daysToStreak}d
+                                    </Text>
+                                    <Text style={styles.cardSubtext}>to {stats.milestones.streakMilestone}-day streak</Text>
+                                </View>
+                            )}
+                            {stats.milestones.volumeMilestone && (
+                                <View style={styles.card}>
+                                    <Text style={styles.cardLabel}>Actions</Text>
+                                    <Text style={[styles.cardValue, { color: accentColor }]}>
+                                        {stats.milestones.actionsToVolume}
+                                    </Text>
+                                    <Text style={styles.cardSubtext}>to {stats.milestones.volumeMilestone} total</Text>
+                                </View>
+                            )}
+                        </View>
+                    </View>
+                )}
+
+                {/* ── Variance Score ── */}
+                <View>
+                    <SectionTitle title="Consistency Variance" />
+                    <View style={styles.surface}>
+                        <View style={styles.varianceHeader}>
+                            <Text style={styles.varianceOverallLabel}>Overall Score</Text>
+                            <Text style={[styles.varianceOverallScore, {
+                                color: stats.varianceScore.overall >= 70 ? theme.colors.success
+                                    : stats.varianceScore.overall >= 40 ? accentColor
+                                    : theme.colors.danger
+                            }]}>
+                                {stats.varianceScore.overall}
+                            </Text>
+                        </View>
+                        <Text style={styles.varianceDesc}>
+                            How consistent your daily counts are (100 = perfectly even, 0 = erratic)
+                        </Text>
+                        {stats.varianceScore.perTracker.map(t => (
+                            <View key={t.name} style={styles.varianceRow}>
+                                <Text style={styles.varianceName}>{t.name}</Text>
+                                <View style={styles.varianceBarTrack}>
+                                    <View style={[styles.varianceBarFill, {
+                                        width: `${t.score}%`,
+                                        backgroundColor: t.score >= 70 ? theme.colors.success
+                                            : t.score >= 40 ? accentColor
+                                            : theme.colors.danger
+                                    }]} />
+                                </View>
+                                <Text style={styles.varianceScore}>{t.score}</Text>
+                            </View>
+                        ))}
+                    </View>
+                </View>
+
                 {/* ── Per-Tracker History ── */}
                 {stats.perTrackerHistory.length > 0 && (
                     <View>
@@ -363,14 +481,25 @@ export default function StatsScreen() {
                         {stats.perTrackerHistory.map(tracker => {
                             const t = trackers.find(tr => tr.name === tracker.trackerName);
                             const goal = t?.dailyGoal ?? 1;
+                            const trend = calculateTrackerTrend(tracker.data.map(d => d.count));
+                            const trendIcon = trend === 'up' ? 'trending-up-outline' : trend === 'down' ? 'trending-down-outline' : 'remove-outline';
+                            const trendColor = trend === 'up' ? theme.colors.success : trend === 'down' ? theme.colors.danger : theme.colors.secondary;
                             return (
-                                <View key={tracker.trackerName} style={[styles.surface, { marginBottom: theme.spacing.m }]}>
+                                <TouchableOpacity
+                                    key={tracker.trackerName}
+                                    style={[styles.surface, { marginBottom: theme.spacing.m }]}
+                                    onPress={() => setTimelineTracker(tracker.trackerName)}
+                                    activeOpacity={0.8}
+                                >
                                     <View style={styles.trackerChartHeader}>
-                                        <Text style={styles.trackerChartName}>{tracker.trackerName}</Text>
-                                        <Text style={styles.trackerChartGoal}>Goal: {goal}/day</Text>
+                                        <View style={styles.trackerChartTitleRow}>
+                                            <Text style={styles.trackerChartName}>{tracker.trackerName}</Text>
+                                            <Ionicons name={trendIcon as any} size={16} color={trendColor} />
+                                        </View>
+                                        <Text style={styles.trackerChartGoal}>Goal: {goal}/day · Tap for 30d</Text>
                                     </View>
-                                    <MiniBarChart data={tracker.data} goal={goal} />
-                                </View>
+                                    <MiniBarChart data={tracker.data} goal={goal} accentColor={accentColor} />
+                                </TouchableOpacity>
                             );
                         })}
                     </View>
@@ -407,6 +536,24 @@ export default function StatsScreen() {
                 </View>
 
             </ScrollView>
+
+            {/* ── Tracker Timeline Modal ── */}
+            <Modal visible={!!timelineTracker} animationType="slide">
+                <SafeAreaView style={styles.modalContainer} edges={['top']}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>{timelineTracker}</Text>
+                        <TouchableOpacity onPress={() => setTimelineTracker(null)}>
+                            <Ionicons name="close" size={28} color={theme.colors.text} />
+                        </TouchableOpacity>
+                    </View>
+                    <TimelineView
+                        trackerName={timelineTracker ?? ''}
+                        trackers={trackers}
+                        history={history}
+                        accentColor={accentColor}
+                    />
+                </SafeAreaView>
+            </Modal>
         </View>
     );
 }
@@ -777,5 +924,118 @@ const styles = StyleSheet.create({
         fontSize: theme.fontSizes.m,
         color: theme.colors.secondary,
         fontStyle: 'italic',
+    },
+
+    // Tracker chart header
+    trackerChartTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+
+    // Variance score
+    varianceHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    varianceOverallLabel: {
+        fontSize: theme.fontSizes.m,
+        fontWeight: '600',
+        color: theme.colors.text,
+    },
+    varianceOverallScore: {
+        fontSize: 28,
+        fontWeight: 'bold',
+    },
+    varianceDesc: {
+        fontSize: 11,
+        color: theme.colors.secondary,
+        marginBottom: theme.spacing.m,
+        lineHeight: 16,
+    },
+    varianceRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: theme.spacing.s,
+        gap: theme.spacing.s,
+    },
+    varianceName: {
+        fontSize: theme.fontSizes.s,
+        color: theme.colors.secondary,
+        width: 90,
+    },
+    varianceBarTrack: {
+        flex: 1,
+        height: 6,
+        backgroundColor: theme.colors.background,
+        borderRadius: 3,
+        overflow: 'hidden',
+    },
+    varianceBarFill: {
+        height: '100%',
+        borderRadius: 3,
+    },
+    varianceScore: {
+        fontSize: theme.fontSizes.s,
+        color: theme.colors.secondary,
+        width: 28,
+        textAlign: 'right',
+        fontWeight: '600',
+    },
+
+    // Timeline modal
+    modalContainer: {
+        flex: 1,
+        backgroundColor: theme.colors.background,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: theme.spacing.m,
+        paddingVertical: theme.spacing.m,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.surface,
+    },
+    modalTitle: {
+        fontSize: theme.fontSizes.xl,
+        fontWeight: 'bold',
+        color: theme.colors.text,
+    },
+    timelineContent: {
+        padding: theme.spacing.m,
+        paddingBottom: 60,
+    },
+    timelineStats: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: theme.spacing.m,
+        marginBottom: theme.spacing.l,
+    },
+    timelineStatItem: {
+        flex: 1,
+        minWidth: '40%',
+        backgroundColor: theme.colors.surface,
+        borderRadius: 12,
+        padding: theme.spacing.m,
+        alignItems: 'center',
+    },
+    timelineStatValue: {
+        fontSize: theme.fontSizes.l,
+        fontWeight: 'bold',
+        marginBottom: 4,
+    },
+    timelineStatLabel: {
+        fontSize: theme.fontSizes.s,
+        color: theme.colors.secondary,
+    },
+    timelineChartLabel: {
+        fontSize: theme.fontSizes.s,
+        color: theme.colors.secondary,
+        marginBottom: theme.spacing.m,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
     },
 });

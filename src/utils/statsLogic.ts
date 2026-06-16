@@ -263,3 +263,82 @@ export const calculatePerTrackerHistory = (
             return { trackerName: tracker.name, data };
         });
 };
+
+export const calculateTrackerTrend = (data: number[]): 'up' | 'down' | 'flat' => {
+    const n = data.length;
+    if (n < 3) return 'flat';
+    const sumX = data.reduce((s, _, i) => s + i, 0);
+    const sumY = data.reduce((s, v) => s + v, 0);
+    const sumXY = data.reduce((s, v, i) => s + i * v, 0);
+    const sumX2 = data.reduce((s, _, i) => s + i * i, 0);
+    const denom = n * sumX2 - sumX * sumX;
+    if (denom === 0) return 'flat';
+    const slope = (n * sumXY - sumX * sumY) / denom;
+    if (slope > 0.15) return 'up';
+    if (slope < -0.15) return 'down';
+    return 'flat';
+};
+
+export const calculateVarianceScore = (
+    trackers: Tracker[],
+    history: HistoryRecord[],
+    days = 30
+): { overall: number; perTracker: { name: string; score: number }[] } => {
+    const today = getTodayString();
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - (days - 1));
+    const splitDate = cutoff.toISOString().split('T')[0];
+    const relevantHistory = history.filter(r => r.date >= splitDate && r.date < today);
+
+    const scoreTracker = (tracker: Tracker) => {
+        const counts: number[] = [];
+        for (let i = days - 1; i >= 1; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            const record = relevantHistory.find(r => r.date === dateStr);
+            const detail = record?.details.find(d => d.trackerName === tracker.name);
+            counts.push(detail?.count ?? 0);
+        }
+        counts.push(tracker.count);
+
+        const nonZeroCounts = counts.filter(c => c > 0);
+        if (nonZeroCounts.length < 2) return nonZeroCounts.length === 0 ? 0 : 50;
+
+        const mean = nonZeroCounts.reduce((s, v) => s + v, 0) / nonZeroCounts.length;
+        if (mean === 0) return 0;
+        const variance = nonZeroCounts.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / nonZeroCounts.length;
+        const stddev = Math.sqrt(variance);
+        const cv = stddev / mean; // coefficient of variation
+        return Math.round(Math.max(0, 100 - cv * 100));
+    };
+
+    const active = trackers.filter(t => t.isActive && !t.isArchived);
+    const perTracker = active.map(t => ({ name: t.name, score: scoreTracker(t) }));
+    const overall = perTracker.length > 0
+        ? Math.round(perTracker.reduce((s, t) => s + t.score, 0) / perTracker.length)
+        : 0;
+
+    return { overall, perTracker };
+};
+
+export const calculateMilestones = (
+    trackers: Tracker[],
+    history: HistoryRecord[],
+    currentStreak: number
+): { streakMilestone: number | null; daysToStreak: number; volumeMilestone: number | null; actionsToVolume: number } => {
+    const allTimeVolume = history.reduce((s, r) => s + r.totalVolume, 0) + calculateTodayVolume(trackers);
+
+    const streakMilestones = [7, 14, 30, 60, 100, 365];
+    const nextStreakMilestone = streakMilestones.find(m => m > currentStreak) ?? null;
+
+    const volumeMilestones = [50, 100, 250, 500, 1000, 2500, 5000, 10000];
+    const nextVolumeMilestone = volumeMilestones.find(m => m > allTimeVolume) ?? null;
+
+    return {
+        streakMilestone: nextStreakMilestone,
+        daysToStreak: nextStreakMilestone ? nextStreakMilestone - currentStreak : 0,
+        volumeMilestone: nextVolumeMilestone,
+        actionsToVolume: nextVolumeMilestone ? nextVolumeMilestone - allTimeVolume : 0,
+    };
+};

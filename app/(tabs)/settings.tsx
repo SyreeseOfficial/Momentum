@@ -14,6 +14,17 @@ import appJson from '../../app.json';
 
 const APP_VERSION = appJson.expo.version;
 
+const ACCENT_COLORS = [
+    { name: 'Indigo', value: '#6366F1' },
+    { name: 'Purple', value: '#A855F7' },
+    { name: 'Blue', value: '#3B82F6' },
+    { name: 'Teal', value: '#14B8A6' },
+    { name: 'Green', value: '#22C55E' },
+    { name: 'Pink', value: '#EC4899' },
+    { name: 'Orange', value: '#F97316' },
+    { name: 'Red', value: '#EF4444' },
+];
+
 const CHANGELOG = [
     {
         version: '1.1.0',
@@ -309,6 +320,69 @@ export default function SettingsScreen() {
                 {/* ── Display ── */}
                 <View style={styles.section}>
                     <SectionHeader title="Display" />
+
+                    {/* Color Theme */}
+                    <View style={[styles.card, { marginBottom: theme.spacing.m }]}>
+                        <Text style={styles.settingLabel}>Accent Color</Text>
+                        <View style={styles.colorRow}>
+                            {ACCENT_COLORS.map(c => (
+                                <TouchableOpacity
+                                    key={c.value}
+                                    style={[styles.colorSwatch, { backgroundColor: c.value }, preferences.accentColor === c.value && styles.colorSwatchSelected]}
+                                    onPress={() => updatePreference('accentColor', c.value)}
+                                >
+                                    {preferences.accentColor === c.value && (
+                                        <Text style={styles.colorCheck}>✓</Text>
+                                    )}
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+
+                    {/* Tracker Card Options */}
+                    <View style={[styles.card, { marginBottom: theme.spacing.m }]}>
+                        <SettingRow
+                            label="Card Style"
+                            sub={undefined}
+                            right={null}
+                        />
+                        <SegmentedControl
+                            options={['detailed', 'minimal'] as const}
+                            value={preferences.cardStyle}
+                            onChange={v => updatePreference('cardStyle', v)}
+                            labels={{ detailed: 'Detailed', minimal: 'Minimal' }}
+                        />
+                        <View style={styles.rowDivider} />
+                        <SettingRow
+                            label="Show Emoji on Card"
+                            sub={undefined}
+                            right={
+                                <Switch
+                                    trackColor={{ false: theme.colors.surface, true: theme.colors.accent }}
+                                    thumbColor={theme.colors.text}
+                                    ios_backgroundColor={theme.colors.surface}
+                                    onValueChange={v => updatePreference('showEmojiOnCard', v)}
+                                    value={preferences.showEmojiOnCard}
+                                />
+                            }
+                        />
+                        <View style={styles.rowDivider} />
+                        <SettingRow
+                            label="Show Goal on Card"
+                            sub={undefined}
+                            right={
+                                <Switch
+                                    trackColor={{ false: theme.colors.surface, true: theme.colors.accent }}
+                                    thumbColor={theme.colors.text}
+                                    ios_backgroundColor={theme.colors.surface}
+                                    onValueChange={v => updatePreference('showGoalOnCard', v)}
+                                    value={preferences.showGoalOnCard}
+                                />
+                            }
+                        />
+                    </View>
+
+                    {/* Week Start Day */}
                     <View style={styles.card}>
                         <SettingRow
                             label="Week Starts On"
@@ -753,6 +827,30 @@ const styles = StyleSheet.create({
         width: 1,
         height: 32,
         backgroundColor: theme.colors.background,
+    },
+
+    // Color picker
+    colorRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
+        marginTop: theme.spacing.m,
+    },
+    colorSwatch: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    colorSwatchSelected: {
+        borderWidth: 3,
+        borderColor: '#fff',
+    },
+    colorCheck: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 
     // Changelog

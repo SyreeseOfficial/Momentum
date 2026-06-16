@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { theme } from '../constants/theme';
+import { useTrackers } from '../context/TrackerContext';
+import { useAccentColor } from '../hooks/useAccentColor';
 
 interface TrackerCardProps {
     name: string;
@@ -15,18 +17,15 @@ interface TrackerCardProps {
 }
 
 export const TrackerCard: React.FC<TrackerCardProps> = ({
-    name,
-    count,
-    goal,
-    emoji,
-    onIncrement,
-    onDecrement,
-    onArchive,
-    onDelete,
+    name, count, goal, emoji, onIncrement, onDecrement, onArchive, onDelete,
 }) => {
+    const { preferences } = useTrackers();
+    const accentColor = useAccentColor();
+    const { showEmojiOnCard, showGoalOnCard, cardStyle } = preferences;
+    const isMinimal = cardStyle === 'minimal';
+
     const handleIncrement = () => {
-        const newCount = count + 1;
-        if (newCount === goal) {
+        if (count + 1 === goal) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } else {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -50,16 +49,18 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
 
     const percentage = Math.min(Math.max((count / goal) * 100, 0), 100);
     const isGoalMet = percentage >= 100;
-    const barColor = isGoalMet ? theme.colors.success : theme.colors.accent;
+    const barColor = isGoalMet ? theme.colors.success : accentColor;
 
     return (
-        <View style={styles.card}>
-            {emoji ? (
-                <Text style={styles.emoji}>{emoji}</Text>
+        <View style={[styles.card, isMinimal && styles.cardMinimal]}>
+            {showEmojiOnCard && emoji ? (
+                <Text style={[styles.emoji, isMinimal && styles.emojiMinimal]}>{emoji}</Text>
             ) : null}
-            <Text style={styles.name}>{name}</Text>
-            <Text style={styles.count}>{count}</Text>
-            <Text style={styles.goal}>Goal: {goal}</Text>
+            <Text style={[styles.name, isMinimal && styles.nameMinimal]}>{name}</Text>
+            <Text style={[styles.count, isMinimal && styles.countMinimal]}>{count}</Text>
+            {showGoalOnCard && !isMinimal ? (
+                <Text style={styles.goal}>Goal: {goal}</Text>
+            ) : null}
 
             <View style={styles.progressBarContainer}>
                 <View style={[styles.progressBarFill, { width: `${percentage}%`, backgroundColor: barColor }]} />
@@ -92,9 +93,15 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         position: 'relative',
     },
+    cardMinimal: {
+        paddingVertical: 10,
+    },
     emoji: {
         fontSize: 28,
         marginBottom: 2,
+    },
+    emojiMinimal: {
+        fontSize: 20,
     },
     name: {
         color: theme.colors.secondary,
@@ -103,11 +110,18 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
         marginBottom: 4,
     },
+    nameMinimal: {
+        fontSize: 11,
+    },
     count: {
         color: theme.colors.primary,
         fontSize: 48,
         fontWeight: 'bold',
         marginVertical: 4,
+    },
+    countMinimal: {
+        fontSize: 32,
+        marginVertical: 2,
     },
     goal: {
         color: theme.colors.secondary,

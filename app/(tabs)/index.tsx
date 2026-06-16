@@ -14,11 +14,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { detectNewAchievements, ACHIEVEMENTS } from '../../src/utils/achievements';
 import { calculateTodayVolume, calculateConsistencyScore, calculateGoalCompletionRate } from '../../src/utils/statsLogic';
 import { isWeekendDay } from '../../src/utils/dateLogic';
+import { useAccentColor } from '../../src/hooks/useAccentColor';
 import { Achievement } from '../../src/types';
 
 export default function HomeScreen() {
     const router = useRouter();
     const { trackers, history, incrementTracker, decrementTracker, unlockedAchievements, unlockAchievement, archiveTracker, deleteTracker, preferences } = useTrackers();
+    const accentColor = useAccentColor();
     const isWeekend = isWeekendDay();
 
     const sortedActiveTrackers = useMemo(() => {
@@ -135,7 +137,7 @@ export default function HomeScreen() {
             />
 
             <TouchableOpacity
-                style={styles.fab}
+                style={[styles.fab, { backgroundColor: accentColor }]}
                 onPress={() => router.push('/add-tracker')}
                 activeOpacity={0.8}
             >
