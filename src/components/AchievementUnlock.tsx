@@ -4,7 +4,6 @@ import { Achievement } from '../types';
 import { Confetti } from './Confetti';
 import { useAppTheme } from '../context/ThemeContext';
 import { useTrackers } from '../context/TrackerContext';
-import { playSound } from '../utils/sounds';
 
 interface AchievementUnlockProps {
     achievement: Achievement | null;
@@ -21,7 +20,6 @@ export const AchievementUnlock = ({ achievement, onDismiss }: AchievementUnlockP
     useEffect(() => {
         if (achievement) {
             setVisible(true);
-            playSound('achievement', preferences.soundEnabled);
 
             if (preferences.reduceAnimations) {
                 scaleAnim.setValue(1);

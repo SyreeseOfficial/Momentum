@@ -53,11 +53,17 @@ const CHANGELOG = [
 
 // ─── Reusable setting row components ──────────────────────────────────────────
 
+type SettingsStyles = ReturnType<typeof createStyles>;
+const SettingsStylesCtx = React.createContext<SettingsStyles | null>(null);
+const useSettingsStyles = () => React.useContext(SettingsStylesCtx)!;
+
 function SectionHeader({ title }: { title: string }) {
+    const styles = useSettingsStyles();
     return <Text style={styles.sectionTitle}>{title}</Text>;
 }
 
 function SettingRow({ label, sub, right }: { label: string; sub?: string; right: React.ReactNode }) {
+    const styles = useSettingsStyles();
     return (
         <View style={styles.settingRow}>
             <View style={styles.settingRowLeft}>
@@ -77,6 +83,7 @@ function SegmentedControl<T extends string>({
     onChange: (v: T) => void;
     labels?: Record<T, string>;
 }) {
+    const styles = useSettingsStyles();
     return (
         <View style={styles.segmented}>
             {options.map(opt => (
@@ -240,6 +247,7 @@ export default function SettingsScreen() {
     // ── Render ────────────────────────────────────────────────────────────────
 
     return (
+        <SettingsStylesCtx.Provider value={styles}>
         <View style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.title}>Settings</Text>
@@ -691,6 +699,7 @@ export default function SettingsScreen() {
 
             </ScrollView>
         </View>
+        </SettingsStylesCtx.Provider>
     );
 }
 

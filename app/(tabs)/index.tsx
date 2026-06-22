@@ -15,8 +15,8 @@ import { calculateTodayVolume, calculateConsistencyScore, calculateGoalCompletio
 import { isWeekendDay } from '../../src/utils/dateLogic';
 import { useAppTheme } from '../../src/context/ThemeContext';
 import { Theme } from '../../src/constants/theme';
-import { Achievement, EnergyLevel, ENERGY_LABELS, isTrackerGoalMet } from '../../src/types';
 import { playSound } from '../../src/utils/sounds';
+import { Achievement, EnergyLevel, ENERGY_LABELS, isTrackerGoalMet } from '../../src/types';
 
 export default function HomeScreen() {
     const router = useRouter();

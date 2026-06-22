@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useTrackers } from '../context/TrackerContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { triggerHaptic } from '../utils/haptics';
-import { playSound } from '../utils/sounds';
 import { TrackerType, ThemeColors } from '../types';
 
 interface TrackerCardProps {
@@ -52,10 +51,8 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
             : count + 1 >= goal;
         if (willMeetGoal) {
             triggerHaptic('success', hapticIntensity);
-            playSound('goal', soundEnabled);
         } else {
             triggerHaptic('tap', hapticIntensity);
-            playSound('tap', soundEnabled);
         }
         onIncrement();
     };
@@ -66,7 +63,7 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
     };
 
     const handleLongPress = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        triggerHaptic('tap', hapticIntensity);
         Alert.alert(name, undefined, [
             { text: 'Edit', onPress: onEdit },
             { text: 'Archive', onPress: onArchive },

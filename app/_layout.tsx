@@ -5,7 +5,6 @@ import { StatusBar } from 'expo-status-bar';
 import { TrackerProvider } from '../src/context/TrackerContext';
 import { ThemeProvider, useAppTheme } from '../src/context/ThemeContext';
 import { useTrackers } from '../src/context/TrackerContext';
-import * as LocalAuthentication from 'expo-local-authentication';
 
 function AppLockGate({ children }: { children: React.ReactNode }) {
     const { preferences } = useTrackers();
@@ -34,10 +33,11 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
 
     const authenticate = async () => {
         try {
-            const hasHardware = await LocalAuthentication.hasHardwareAsync();
-            const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+            const LA = await import('expo-local-authentication');
+            const hasHardware = await LA.hasHardwareAsync();
+            const isEnrolled = await LA.isEnrolledAsync();
             if (!hasHardware || !isEnrolled) { setLocked(false); return; }
-            const result = await LocalAuthentication.authenticateAsync({
+            const result = await LA.authenticateAsync({
                 promptMessage: 'Unlock Momentum',
                 fallbackLabel: 'Use PIN',
                 cancelLabel: 'Cancel',
