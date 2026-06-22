@@ -25,6 +25,8 @@ const firstDayOfMonth = (year: number, month: number) => new Date(year, month, 1
 
 const HistoryItem = ({ item, trackers }: { item: HistoryRecord; trackers: ReturnType<typeof useTrackers>['trackers'] }) => {
     const router = useRouter();
+    const theme = useAppTheme();
+    const styles = useMemo(() => createStyles(theme), [theme]);
     const perfect = isPerfectDay(item, trackers);
     return (
         <TouchableOpacity
@@ -57,6 +59,8 @@ function CalendarView({ history, trackers, accentColor }: {
     accentColor: string;
 }) {
     const router = useRouter();
+    const theme = useAppTheme();
+    const styles = useMemo(() => createStyles(theme), [theme]);
     const today = new Date();
     const [year, setYear] = useState(today.getFullYear());
     const [month, setMonth] = useState(today.getMonth());

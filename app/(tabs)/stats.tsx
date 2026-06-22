@@ -37,13 +37,21 @@ import {
     calculateBestWeek,
 } from '../../src/utils/statsLogic';
 
+// ─── Sub-component context ─────────────────────────────────────────────────────
+
+type StatsCtxType = { styles: ReturnType<typeof createStyles>; theme: Theme };
+const StatsCtx = React.createContext<StatsCtxType | null>(null);
+const useStatsCtx = () => React.useContext(StatsCtx)!;
+
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
 function SectionTitle({ title }: { title: string }) {
+    const { styles } = useStatsCtx();
     return <Text style={styles.sectionTitle}>{title}</Text>;
 }
 
 function StatCard({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: string }) {
+    const { styles } = useStatsCtx();
     return (
         <View style={styles.card}>
             <Text style={styles.cardLabel}>{label}</Text>
@@ -54,6 +62,7 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string 
 }
 
 function ConsistencyRing({ score }: { score: number }) {
+    const { styles, theme } = useStatsCtx();
     const color = score >= 75 ? theme.colors.success : score >= 40 ? theme.colors.accent : theme.colors.danger;
     return (
         <View style={styles.consistencyContainer}>
@@ -67,6 +76,7 @@ function ConsistencyRing({ score }: { score: number }) {
 }
 
 function Heatmap({ cells }: { cells: { date: string; volume: number; intensity: number }[] }) {
+    const { styles } = useStatsCtx();
     const getColor = (intensity: number) => {
         if (intensity === 0) return '#2A2A2A';
         if (intensity < 0.25) return '#312E81';
@@ -106,7 +116,9 @@ function Heatmap({ cells }: { cells: { date: string; volume: number; intensity: 
     );
 }
 
-function MiniBarChart({ data, goal, accentColor = theme.colors.accent }: { data: { date: string; count: number }[]; goal: number; accentColor?: string }) {
+function MiniBarChart({ data, goal, accentColor }: { data: { date: string; count: number }[]; goal: number; accentColor?: string }) {
+    const { styles, theme } = useStatsCtx();
+    const resolvedAccent = accentColor ?? theme.colors.accent;
     const max = Math.max(...data.map(d => d.count), goal, 1);
     const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -116,7 +128,7 @@ function MiniBarChart({ data, goal, accentColor = theme.colors.accent }: { data:
                 const heightPct = d.count / max;
                 const isToday = i === data.length - 1;
                 const metGoal = d.count >= goal;
-                const barColor = metGoal ? theme.colors.success : isToday ? accentColor : theme.colors.secondary;
+                const barColor = metGoal ? theme.colors.success : isToday ? resolvedAccent : theme.colors.secondary;
                 const dow = new Date(d.date + 'T12:00:00').getDay();
                 return (
                     <View key={i} style={styles.miniBarWrapper}>
@@ -134,6 +146,7 @@ function MiniBarChart({ data, goal, accentColor = theme.colors.accent }: { data:
 }
 
 function MonthlyTrendChart({ data, accentColor }: { data: { label: string; volume: number; isCurrent: boolean }[]; accentColor: string }) {
+    const { styles, theme } = useStatsCtx();
     const max = Math.max(...data.map(d => d.volume), 1);
     return (
         <View style={styles.monthlyChart}>
@@ -154,6 +167,7 @@ function MonthlyTrendChart({ data, accentColor }: { data: { label: string; volum
 }
 
 function CorrelationMatrix({ matrix, accentColor }: { matrix: { names: string[]; matrix: number[][] }; accentColor: string }) {
+    const { styles, theme } = useStatsCtx();
     const { names, matrix: m } = matrix;
     const cellColor = (val: number) => {
         if (val >= 0.7) return '#166534';
@@ -206,6 +220,7 @@ function TimelineView({ trackerName, trackers, history, accentColor }: {
     history: any[];
     accentColor: string;
 }) {
+    const { styles, theme } = useStatsCtx();
     const data30 = useMemo(() => calculatePerTrackerHistory(
         trackers.filter(t => t.name === trackerName),
         history,
@@ -252,6 +267,7 @@ function TimelineView({ trackerName, trackers, history, accentColor }: {
 }
 
 function DayOfWeekChart({ patterns, weekStartDay }: { patterns: { name: string; avg: number; normalized: number }[]; weekStartDay: number }) {
+    const { styles, theme } = useStatsCtx();
     const ordered = weekStartDay === 0 ? patterns : [...patterns.slice(weekStartDay), ...patterns.slice(0, weekStartDay)];
     const maxDay = ordered.reduce((best, d) => d.avg > best.avg ? d : best, ordered[0]);
     return (
@@ -380,6 +396,7 @@ export default function StatsScreen() {
     };
 
     return (
+        <StatsCtx.Provider value={{ styles, theme }}>
         <View style={[styles.container, { paddingTop: insets.top }]}>
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Stats</Text>
@@ -878,6 +895,7 @@ export default function StatsScreen() {
                 </SafeAreaView>
             </Modal>
         </View>
+        </StatsCtx.Provider>
     );
 }
 
