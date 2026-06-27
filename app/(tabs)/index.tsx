@@ -15,7 +15,6 @@ import { calculateTodayVolume, calculateConsistencyScore, calculateGoalCompletio
 import { isWeekendDay } from '../../src/utils/dateLogic';
 import { useAppTheme } from '../../src/context/ThemeContext';
 import { Theme } from '../../src/constants/theme';
-import { playSound } from '../../src/utils/sounds';
 import { Achievement, EnergyLevel, ENERGY_LABELS, isTrackerGoalMet } from '../../src/types';
 
 export default function HomeScreen() {
@@ -152,7 +151,7 @@ export default function HomeScreen() {
                                         const eg = getEffectiveGoal(t.dailyGoal);
                                         return t.trackerType === 'negative' ? t.count < eg : t.count >= eg;
                                     });
-                                    if (allMet) { setShowCelebration(true); playSound('goal', preferences.soundEnabled); }
+                                    if (allMet) { setShowCelebration(true); }
                                 }}
                                 onDecrement={() => decrementTracker(item.id)}
                                 onEdit={() => router.push({ pathname: '/edit-tracker', params: { id: item.id } })}

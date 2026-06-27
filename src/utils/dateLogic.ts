@@ -23,6 +23,13 @@ export const getEffectiveDateString = (resetHour: number = 0): string => {
     return getTodayString();
 };
 
+export const dateToString = (d: Date): string => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 export const isWeekendDay = (): boolean => {
     const dow = new Date().getDay();
     return dow === 0 || dow === 6;

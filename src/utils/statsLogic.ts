@@ -1,60 +1,32 @@
 import { Tracker, HistoryRecord, EnergyEntry, EnergyLevel } from '../types';
-import { getTodayString } from './dateLogic';
+import { getTodayString, dateToString } from './dateLogic';
 
 export const calculateTodayVolume = (trackers: Tracker[]): number => {
     return trackers.reduce((total, tracker) => total + tracker.count, 0);
 };
 
-export const calculate7DayVolume = (trackers: Tracker[], history: HistoryRecord[]): number => {
+export const calculateVolumeForDays = (trackers: Tracker[], history: HistoryRecord[], days: number): number => {
     const todayVolume = calculateTodayVolume(trackers);
     const today = getTodayString();
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-    const splitDate = sevenDaysAgo.toISOString().split('T')[0];
-    const historyVolume = history.filter(record => record.date >= splitDate && record.date < today)
-        .reduce((total, record) => total + record.totalVolume, 0);
-    return todayVolume + historyVolume;
-};
-
-export const calculate14DayVolume = (trackers: Tracker[], history: HistoryRecord[]): number => {
-    const todayVolume = calculateTodayVolume(trackers);
-    const today = getTodayString();
-    const fourteenDaysAgo = new Date();
-    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 13);
-    const splitDate = fourteenDaysAgo.toISOString().split('T')[0];
-    const historyVolume = history.filter(record => record.date >= splitDate && record.date < today)
-        .reduce((total, record) => total + record.totalVolume, 0);
-    return todayVolume + historyVolume;
-};
-
-export const calculate30DayVolume = (trackers: Tracker[], history: HistoryRecord[]): number => {
-    const todayVolume = calculateTodayVolume(trackers);
-    const today = getTodayString();
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
-    const splitDate = thirtyDaysAgo.toISOString().split('T')[0];
-    const historyVolume = history.filter(record => record.date >= splitDate && record.date < today)
-        .reduce((total, record) => total + record.totalVolume, 0);
-    return todayVolume + historyVolume;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - (days - 1));
+    const splitDate = dateToString(cutoff);
+    return todayVolume + history
+        .filter(r => r.date >= splitDate && r.date < today)
+        .reduce((sum, r) => sum + r.totalVolume, 0);
 };
 
 export const calculateDailyMomentum = (trackers: Tracker[], history: HistoryRecord[]): number | null => {
     const todayVolume = calculateTodayVolume(trackers);
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayString = yesterday.toISOString().split('T')[0];
+    const yesterdayString = dateToString(yesterday);
     const yesterdayRecord = history.find(r => r.date === yesterdayString);
     const yesterdayVolume = yesterdayRecord ? yesterdayRecord.totalVolume : 0;
     if (yesterdayVolume === 0) {
         return todayVolume > 0 ? 100 : 0;
     }
     return ((todayVolume - yesterdayVolume) / yesterdayVolume) * 100;
-};
-
-export const getMomentumDirection = (todayVolume: number, yesterdayVolume: number): 'up' | 'down' | 'equal' => {
-    if (todayVolume > yesterdayVolume) return 'up';
-    if (todayVolume < yesterdayVolume) return 'down';
-    return 'equal';
 };
 
 export const calculateEffortSplit = (trackers: Tracker[]): { name: string; percentage: number; count: number }[] => {
@@ -76,18 +48,14 @@ export const calculateDailyAverages = (trackers: Tracker[], history: HistoryReco
     const getAvg = (daysBack: number) => {
         const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() - (daysBack - 1));
-        const splitDate = cutoff.toISOString().split('T')[0];
+        const splitDate = dateToString(cutoff);
         const historyVolume = history
             .filter(r => r.date >= splitDate && r.date < today)
             .reduce((sum, r) => sum + r.totalVolume, 0);
         return Math.round((todayVolume + historyVolume) / daysBack);
     };
 
-    return {
-        avg7: getAvg(7),
-        avg14: getAvg(14),
-        avg30: getAvg(30),
-    };
+    return { avg7: getAvg(7), avg14: getAvg(14), avg30: getAvg(30) };
 };
 
 export const calculateBestDay = (trackers: Tracker[], history: HistoryRecord[]): { date: string; volume: number } | null => {
@@ -95,7 +63,6 @@ export const calculateBestDay = (trackers: Tracker[], history: HistoryRecord[]):
     const todayVolume = calculateTodayVolume(trackers);
 
     let best: { date: string; volume: number } | null = null;
-
     history.forEach(record => {
         if (!best || record.totalVolume > best.volume) {
             best = { date: record.date, volume: record.totalVolume };
@@ -105,7 +72,6 @@ export const calculateBestDay = (trackers: Tracker[], history: HistoryRecord[]):
     if (todayVolume > (best?.volume ?? 0)) {
         best = { date: today, volume: todayVolume };
     }
-
     return best;
 };
 
@@ -113,7 +79,7 @@ export const calculateGoalCompletionRate = (trackers: Tracker[], history: Histor
     const today = getTodayString();
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - (days - 1));
-    const splitDate = cutoff.toISOString().split('T')[0];
+    const splitDate = dateToString(cutoff);
 
     const activeTrackers = trackers.filter(t => t.isActive);
     const isTodayComplete = activeTrackers.length > 0 && activeTrackers.every(t => t.count >= t.dailyGoal);
@@ -124,8 +90,7 @@ export const calculateGoalCompletionRate = (trackers: Tracker[], history: Histor
     ).length;
 
     const perfectDays = perfectHistoryDays + (isTodayComplete ? 1 : 0);
-    const totalDays = relevantHistory.length + 1; // +1 for today
-
+    const totalDays = relevantHistory.length + 1;
     if (totalDays === 0) return null;
     return Math.round((perfectDays / totalDays) * 100);
 };
@@ -133,20 +98,18 @@ export const calculateGoalCompletionRate = (trackers: Tracker[], history: Histor
 export const calculateConsistencyScore = (
     currentStreak: number,
     goalCompletionRate: number | null,
-    trackers: Tracker[],
-    history: HistoryRecord[]
+    _trackers: Tracker[],
+    _history: HistoryRecord[]
 ): number => {
     const rate = goalCompletionRate ?? 0;
-    const streakBonus = Math.min(currentStreak * 2, 30); // up to 30 points from streak
-    const rateScore = rate * 0.7; // up to 70 points from completion rate
+    const streakBonus = Math.min(currentStreak * 2, 30);
+    const rateScore = rate * 0.7;
     return Math.min(100, Math.round(rateScore + streakBonus));
 };
 
 export const calculatePaceIndicator = (trackers: Tracker[], history: HistoryRecord[]) => {
     const avg7 = calculateDailyAverages(trackers, history).avg7;
-    const projectedMonth = avg7 * 30;
-    const projectedWeek = avg7 * 7;
-    return { projectedWeek, projectedMonth, dailyAvg: avg7 };
+    return { projectedWeek: avg7 * 7, projectedMonth: avg7 * 30, dailyAvg: avg7 };
 };
 
 export const calculateDayOfWeekPatterns = (trackers: Tracker[], history: HistoryRecord[]) => {
@@ -181,18 +144,17 @@ export const calculateWeekComparison = (trackers: Tracker[], history: HistoryRec
 
     const thisWeekStart = new Date();
     thisWeekStart.setDate(thisWeekStart.getDate() - 6);
-    const thisWeekStartStr = thisWeekStart.toISOString().split('T')[0];
+    const thisWeekStartStr = dateToString(thisWeekStart);
 
     const lastWeekStart = new Date();
     lastWeekStart.setDate(lastWeekStart.getDate() - 13);
-    const lastWeekStartStr = lastWeekStart.toISOString().split('T')[0];
+    const lastWeekStartStr = dateToString(lastWeekStart);
 
     const thisWeekHistory = history.filter(r => r.date >= thisWeekStartStr && r.date < today);
     const lastWeekHistory = history.filter(r => r.date >= lastWeekStartStr && r.date < thisWeekStartStr);
 
     const thisWeek = thisWeekHistory.reduce((sum, r) => sum + r.totalVolume, 0) + todayVolume;
     const lastWeek = lastWeekHistory.reduce((sum, r) => sum + r.totalVolume, 0);
-
     const change = lastWeek === 0 ? null : Math.round(((thisWeek - lastWeek) / lastWeek) * 100);
 
     return { thisWeek, lastWeek, change };
@@ -206,12 +168,10 @@ export const calculateActivityHeatmap = (
     const today = new Date();
     const todayStr = getTodayString();
     const todayVolume = calculateTodayVolume(trackers);
-
     const totalDays = weeks * 7;
     const startDate = new Date(today);
     startDate.setDate(startDate.getDate() - (totalDays - 1));
 
-    // Find max for normalization
     const allVolumes = history.map(r => r.totalVolume);
     if (todayVolume > 0) allVolumes.push(todayVolume);
     const maxVolume = Math.max(...allVolumes, 1);
@@ -223,11 +183,10 @@ export const calculateActivityHeatmap = (
     for (let i = 0; i < totalDays; i++) {
         const d = new Date(startDate);
         d.setDate(d.getDate() + i);
-        const dateStr = d.toISOString().split('T')[0];
+        const dateStr = dateToString(d);
         const volume = historyMap.get(dateStr) ?? 0;
         cells.push({ date: dateStr, volume, intensity: volume / maxVolume });
     }
-
     return cells;
 };
 
@@ -239,27 +198,24 @@ export const calculatePerTrackerHistory = (
     const today = getTodayString();
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - (days - 1));
-    const splitDate = cutoff.toISOString().split('T')[0];
+    const splitDate = dateToString(cutoff);
 
     const relevantHistory = history.filter(r => r.date >= splitDate && r.date < today);
+    const historyMap = new Map(relevantHistory.map(r => [r.date, r]));
 
     return trackers
         .filter(t => t.isActive)
         .map(tracker => {
             const data: { date: string; count: number }[] = [];
-
             for (let i = days - 1; i >= 1; i--) {
                 const d = new Date();
                 d.setDate(d.getDate() - i);
-                const dateStr = d.toISOString().split('T')[0];
-                const record = relevantHistory.find(r => r.date === dateStr);
+                const dateStr = dateToString(d);
+                const record = historyMap.get(dateStr);
                 const detail = record?.details.find(d => d.trackerName === tracker.name);
                 data.push({ date: dateStr, count: detail?.count ?? 0 });
             }
-
-            // Today
             data.push({ date: today, count: tracker.count });
-
             return { trackerName: tracker.name, data };
         });
 };
@@ -287,16 +243,16 @@ export const calculateVarianceScore = (
     const today = getTodayString();
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - (days - 1));
-    const splitDate = cutoff.toISOString().split('T')[0];
+    const splitDate = dateToString(cutoff);
     const relevantHistory = history.filter(r => r.date >= splitDate && r.date < today);
+    const historyMap = new Map(relevantHistory.map(r => [r.date, r]));
 
     const scoreTracker = (tracker: Tracker) => {
         const counts: number[] = [];
         for (let i = days - 1; i >= 1; i--) {
             const d = new Date();
             d.setDate(d.getDate() - i);
-            const dateStr = d.toISOString().split('T')[0];
-            const record = relevantHistory.find(r => r.date === dateStr);
+            const record = historyMap.get(dateToString(d));
             const detail = record?.details.find(d => d.trackerName === tracker.name);
             counts.push(detail?.count ?? 0);
         }
@@ -308,8 +264,7 @@ export const calculateVarianceScore = (
         const mean = nonZeroCounts.reduce((s, v) => s + v, 0) / nonZeroCounts.length;
         if (mean === 0) return 0;
         const variance = nonZeroCounts.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / nonZeroCounts.length;
-        const stddev = Math.sqrt(variance);
-        const cv = stddev / mean; // coefficient of variation
+        const cv = Math.sqrt(variance) / mean;
         return Math.round(Math.max(0, 100 - cv * 100));
     };
 
@@ -318,7 +273,6 @@ export const calculateVarianceScore = (
     const overall = perTracker.length > 0
         ? Math.round(perTracker.reduce((s, t) => s + t.score, 0) / perTracker.length)
         : 0;
-
     return { overall, perTracker };
 };
 
@@ -333,16 +287,16 @@ export const calculateCorrelationMatrix = (
     const today = getTodayString();
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - (days - 1));
-    const splitDate = cutoff.toISOString().split('T')[0];
+    const splitDate = dateToString(cutoff);
     const relevantHistory = history.filter(r => r.date >= splitDate && r.date < today);
+    const historyMap = new Map(relevantHistory.map(r => [r.date, r]));
 
     const trackerCounts = active.map(tracker => {
         const counts: number[] = [];
         for (let i = days - 1; i >= 1; i--) {
             const d = new Date();
             d.setDate(d.getDate() - i);
-            const dateStr = d.toISOString().split('T')[0];
-            const record = relevantHistory.find(r => r.date === dateStr);
+            const record = historyMap.get(dateToString(d));
             const detail = record?.details.find(d => d.trackerName === tracker.name);
             counts.push(detail?.count ?? 0);
         }
@@ -364,7 +318,6 @@ export const calculateCorrelationMatrix = (
     const matrix = trackerCounts.map((a, i) =>
         trackerCounts.map((b, j) => i === j ? 1 : pearson(a, b))
     );
-
     return { names: active.map(t => t.name), matrix };
 };
 
@@ -374,12 +327,8 @@ export const calculateMilestones = (
     currentStreak: number
 ): { streakMilestone: number | null; daysToStreak: number; volumeMilestone: number | null; actionsToVolume: number } => {
     const allTimeVolume = history.reduce((s, r) => s + r.totalVolume, 0) + calculateTodayVolume(trackers);
-
-    const streakMilestones = [7, 14, 30, 60, 100, 365];
-    const nextStreakMilestone = streakMilestones.find(m => m > currentStreak) ?? null;
-
-    const volumeMilestones = [50, 100, 250, 500, 1000, 2500, 5000, 10000];
-    const nextVolumeMilestone = volumeMilestones.find(m => m > allTimeVolume) ?? null;
+    const nextStreakMilestone = [7, 14, 30, 60, 100, 365].find(m => m > currentStreak) ?? null;
+    const nextVolumeMilestone = [50, 100, 250, 500, 1000, 2500, 5000, 10000].find(m => m > allTimeVolume) ?? null;
 
     return {
         streakMilestone: nextStreakMilestone,
@@ -394,18 +343,21 @@ export const calculateMonthComparison = (trackers: Tracker[], history: HistoryRe
     const todayStr = getTodayString();
     const todayVolume = calculateTodayVolume(trackers);
 
-    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
+    const thisMonthStart = dateToString(new Date(now.getFullYear(), now.getMonth(), 1));
+    const lastMonthStart = dateToString(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+    const lastMonthEnd = dateToString(new Date(now.getFullYear(), now.getMonth(), 0));
 
-    const thisMonthHistory = history.filter(r => r.date >= thisMonthStart && r.date < todayStr);
-    const lastMonthHistory = history.filter(r => r.date >= lastMonthStart && r.date <= lastMonthEnd);
-
-    const thisMonth = thisMonthHistory.reduce((s, r) => s + r.totalVolume, 0) + todayVolume;
-    const lastMonth = lastMonthHistory.reduce((s, r) => s + r.totalVolume, 0);
+    const thisMonth = history.filter(r => r.date >= thisMonthStart && r.date < todayStr)
+        .reduce((s, r) => s + r.totalVolume, 0) + todayVolume;
+    const lastMonth = history.filter(r => r.date >= lastMonthStart && r.date <= lastMonthEnd)
+        .reduce((s, r) => s + r.totalVolume, 0);
     const change = lastMonth === 0 ? null : Math.round(((thisMonth - lastMonth) / lastMonth) * 100);
 
-    return { thisMonth, lastMonth, change, thisMonthLabel: now.toLocaleString('default', { month: 'long' }), lastMonthLabel: new Date(now.getFullYear(), now.getMonth() - 1).toLocaleString('default', { month: 'long' }) };
+    return {
+        thisMonth, lastMonth, change,
+        thisMonthLabel: now.toLocaleString('default', { month: 'long' }),
+        lastMonthLabel: new Date(now.getFullYear(), now.getMonth() - 1).toLocaleString('default', { month: 'long' }),
+    };
 };
 
 export const calculateLongestGap = (trackers: Tracker[], history: HistoryRecord[]): number => {
@@ -419,38 +371,28 @@ export const calculateLongestGap = (trackers: Tracker[], history: HistoryRecord[
 
     const sorted = Array.from(activeDates).sort();
     let maxGap = 0;
-
     for (let i = 1; i < sorted.length; i++) {
-        const prev = new Date(sorted[i - 1]);
-        const curr = new Date(sorted[i]);
-        const gap = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24)) - 1;
+        const gap = Math.round((new Date(sorted[i]).getTime() - new Date(sorted[i - 1]).getTime()) / 86400000) - 1;
         if (gap > maxGap) maxGap = gap;
     }
-
     return maxGap;
 };
 
 export const calculateMonthlyTrend = (trackers: Tracker[], history: HistoryRecord[], months = 12) => {
-    const today = getTodayString();
     const todayVolume = calculateTodayVolume(trackers);
     const now = new Date();
 
     return Array.from({ length: months }, (_, i) => {
         const offset = months - 1 - i;
         const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
-        const monthStart = date.toISOString().split('T')[0];
-        const nextMonth = new Date(date.getFullYear(), date.getMonth() + 1, 1);
-        const monthEnd = nextMonth.toISOString().split('T')[0];
+        const monthStart = dateToString(date);
+        const monthEnd = dateToString(new Date(date.getFullYear(), date.getMonth() + 1, 1));
         const isCurrentMonth = offset === 0;
 
-        const monthHistory = history.filter(r => r.date >= monthStart && r.date < monthEnd);
-        const volume = monthHistory.reduce((s, r) => s + r.totalVolume, 0) + (isCurrentMonth ? todayVolume : 0);
+        const volume = history.filter(r => r.date >= monthStart && r.date < monthEnd)
+            .reduce((s, r) => s + r.totalVolume, 0) + (isCurrentMonth ? todayVolume : 0);
 
-        return {
-            label: date.toLocaleString('default', { month: 'short' }),
-            volume,
-            isCurrent: isCurrentMonth,
-        };
+        return { label: date.toLocaleString('default', { month: 'short' }), volume, isCurrent: isCurrentMonth };
     });
 };
 
@@ -462,12 +404,9 @@ export const calculateTrackerLifecycle = (trackers: Tracker[], history: HistoryR
             .sort();
         const today = getTodayString();
         const hasToday = tracker.count > 0;
-
         const firstDate = appearances[0] ?? (hasToday ? today : null);
         const lastDate = hasToday ? today : appearances[appearances.length - 1] ?? null;
-        const totalDays = appearances.length + (hasToday ? 1 : 0);
-
-        return { name: tracker.name, emoji: tracker.emoji, firstDate, lastDate, totalDays };
+        return { name: tracker.name, emoji: tracker.emoji, firstDate, lastDate, totalDays: appearances.length + (hasToday ? 1 : 0) };
     });
 };
 
@@ -487,10 +426,9 @@ export const calculateBestWeek = (trackers: Tracker[], history: HistoryRecord[])
     let bestEnd = '';
 
     for (let i = 0; i < allRecords.length; i++) {
-        const windowStart = new Date(allRecords[i].date);
-        const windowEnd = new Date(windowStart);
+        const windowEnd = new Date(allRecords[i].date);
         windowEnd.setDate(windowEnd.getDate() + 6);
-        const windowEndStr = windowEnd.toISOString().split('T')[0];
+        const windowEndStr = dateToString(windowEnd);
 
         const weekVolume = allRecords
             .filter(r => r.date >= allRecords[i].date && r.date <= windowEndStr)
@@ -517,7 +455,7 @@ export const calculateEnergyStats = (
     const buildDates = (n: number) => Array.from({ length: n }, (_, i) => {
         const d = new Date();
         d.setDate(d.getDate() - (n - 1 - i));
-        return d.toISOString().split('T')[0];
+        return dateToString(d);
     });
 
     const last7 = buildDates(7);
@@ -532,8 +470,9 @@ export const calculateEnergyStats = (
     };
 
     const history7 = last7.map(date => ({ date, level: getLevel(date) }));
-
-    const entries30 = last30.map(date => ({ date, level: getLevel(date) })).filter(e => e.level !== null) as { date: string; level: EnergyLevel }[];
+    const entries30 = last30
+        .map(date => ({ date, level: getLevel(date) }))
+        .filter(e => e.level !== null) as { date: string; level: EnergyLevel }[];
 
     const levelCounts = ([1, 2, 3, 4, 5] as EnergyLevel[]).map(l => ({
         level: l,
@@ -543,7 +482,6 @@ export const calculateEnergyStats = (
         ? levelCounts.reduce((best, l) => l.count > best.count ? l : best).level
         : null;
 
-    // Energy vs volume correlation
     const paired = entries30.map(e => {
         const vol = e.date === today
             ? trackers.reduce((s, t) => s + t.count, 0)
@@ -562,7 +500,6 @@ export const calculateEnergyStats = (
         if (dE > 0 && dV > 0) energyVolumeCorrelation = Math.round((num / (dE * dV)) * 100) / 100;
     }
 
-    // Volume by energy level (average volume on each energy level day)
     const volumeByLevel = ([1, 2, 3, 4, 5] as EnergyLevel[]).map(level => {
         const dayVols = paired.filter(p => p.energy === level).map(p => p.volume);
         return {

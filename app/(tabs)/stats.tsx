@@ -11,9 +11,7 @@ import { useAppTheme } from '../../src/context/ThemeContext';
 import { Theme } from '../../src/constants/theme';
 import {
     calculateTodayVolume,
-    calculate7DayVolume,
-    calculate14DayVolume,
-    calculate30DayVolume,
+    calculateVolumeForDays,
     calculateDailyMomentum,
     calculateEffortSplit,
     calculateDailyAverages,
@@ -307,9 +305,9 @@ export default function StatsScreen() {
 
     const stats = useMemo(() => {
         const todayVolume = calculateTodayVolume(trackers);
-        const sevenDayVolume = calculate7DayVolume(trackers, history);
-        const fourteenDayVolume = calculate14DayVolume(trackers, history);
-        const thirtyDayVolume = calculate30DayVolume(trackers, history);
+        const sevenDayVolume = calculateVolumeForDays(trackers, history, 7);
+        const fourteenDayVolume = calculateVolumeForDays(trackers, history, 14);
+        const thirtyDayVolume = calculateVolumeForDays(trackers, history, 30);
         const momentum = calculateDailyMomentum(trackers, history);
         const effortSplit = calculateEffortSplit(trackers);
         const dailyAvgs = calculateDailyAverages(trackers, history);
